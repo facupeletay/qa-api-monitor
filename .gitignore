@@ -24,4 +24,10 @@ dist/
 
 # Monitor output results & generated history (not committed to git)
 results/
-site/history.json
+site/
+
+# Dashboard (Node / Vite)
+node_modules/
+dashboard/node_modules/
+dashboard/dist/
+dashboard/.vite/

@@ -13,9 +13,11 @@ from pathlib import Path
 import httpx
 from pydantic import BaseModel, ValidationError
 
+from monitor.config import ConfigError, load_config
 from monitor.models import (
     ALL_STATUS_CATEGORIES,
     CheckResult,
+    MonitorConfig,
     RunReport,
     StatusCategory,
 )
@@ -49,6 +51,7 @@ class MonitorStats(BaseModel):
 
     last_status_category: StatusCategory
     last_timestamp: str
+    max_latency_ms: float | None = None
     window_24h: WindowStats
     window_7d: WindowStats
 
@@ -113,10 +116,20 @@ def merge_history(
     previous: HistoryReport | None,
     new_run: RunReport,
     now: datetime | None = None,
+    monitors: Sequence[MonitorConfig] | None = None,
 ) -> HistoryReport:
     """Agrega `new_run` al historial previo, descarta corridas > 30 días y recalcula stats."""
     ref_now = now.astimezone(UTC) if now is not None else datetime.now(UTC)
     generated_at = _format_iso_utc(ref_now)
+
+    sla_by_name: dict[str, float] = {}
+    if previous is not None:
+        for name, prev_stat in previous.stats.items():
+            if prev_stat.max_latency_ms is not None:
+                sla_by_name[name] = prev_stat.max_latency_ms
+    if monitors is not None:
+        for mon in monitors:
+            sla_by_name[mon.name] = mon.max_latency_ms
 
     run_ts = new_run.results[0].timestamp if new_run.results else generated_at
     existing_runs = list(previous.runs) if previous is not None else []
@@ -145,6 +158,7 @@ def merge_history(
         stats[monitor_name] = MonitorStats(
             last_status_category=last_check.status_category,
             last_timestamp=last_check.timestamp,
+            max_latency_ms=sla_by_name.get(monitor_name),
             window_24h=_compute_window_stats(checks_24h),
             window_7d=_compute_window_stats(checks_7d),
         )
@@ -255,6 +269,11 @@ def build_parser() -> argparse.ArgumentParser:
         default="site/history.json",
         help="Ruta de salida para history.json (default: site/history.json).",
     )
+    parser.add_argument(
+        "--config",
+        default="config/monitors.yaml",
+        help="Ruta al archivo YAML de configuración para obtener max_latency_ms.",
+    )
     return parser
 
 
@@ -265,9 +284,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         previous = load_previous_history(args.previous)
         current_run = load_run_report(args.run)
-        merged = merge_history(previous, current_run)
+        monitors: list[MonitorConfig] | None = None
+        if Path(args.config).is_file():
+            monitors = load_config(args.config)
+        merged = merge_history(previous, current_run, monitors=monitors)
         saved = save_history(merged, args.output)
-    except HistoryError as exc:
+    except (HistoryError, ConfigError) as exc:
         print(f"Error de historial: {exc}", file=sys.stderr)
         return 1
 

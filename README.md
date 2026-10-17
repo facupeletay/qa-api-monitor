@@ -17,21 +17,26 @@ flowchart LR
     A["python -m monitor"] --> B["results/run.json"]
     P["GitHub Pages (history.json previo)"] --> C["python -m monitor.history"]
     B --> C
-    C --> D["site/history.json (ventana 30d + stats 24h/7d)"]
-    D --> E["GitHub Pages (site/index.html)"]
+    C --> D["site/history.json (30d + stats + max_latency_ms)"]
+    F["dashboard/ (npm ci && npm run build)"] --> G["dashboard/dist/"]
+    D --> G
+    G --> E["GitHub Pages (Dashboard React + history.json)"]
 ```
 
 1. **`python -m monitor`** consulta cada API configurada en `config/monitors.yaml`, valida status HTTP, contrato JSON y SLA de latencia, genera `results/run.json` y opcionalmente escribe una tabla resumen en Markdown (`--summary-md`).
-2. **`python -m monitor.history`** descarga el `history.json` publicado actualmente en GitHub Pages con cache-busting y `Cache-Control: no-cache` (o arranca vacío si devuelve `404` en la primera corrida; si hay error `5xx`, timeout o JSON corrupto, aborta para proteger el historial), agrega la corrida nueva, descarta registros de más de 30 días y calcula métricas de las últimas **24 horas** y **7 días** (uptime %, p50, p95 y conteo por categoría).
-3. **GitHub Pages** despliega la carpeta `site/` con `index.html` y el nuevo `history.json`.
+2. **`python -m monitor.history`** descarga el `history.json` publicado actualmente en GitHub Pages con cache-busting y `Cache-Control: no-cache` (o arranca vacío si devuelve `404` en la primera corrida; si hay error `5xx`, timeout o JSON corrupto, aborta para proteger el historial), agrega la corrida nueva, descarta registros de más de 30 días y calcula métricas de las últimas **24 horas** y **7 días** (uptime %, p50, p95, SLA `max_latency_ms` y conteo por categoría).
+3. **`dashboard/` (React + Vite + TypeScript + Tailwind + Recharts)** compila el sitio estático con `base: "/qa-api-monitor/"`, copia el `history.json` actualizado dentro de `dashboard/dist/history.json` y **GitHub Pages** publica ese directorio.
+
+![Vista previa del Dashboard](./docs/dashboard-preview.png)
 
 ---
 
 ## Requisitos
 
 - Python 3.12+
+- Node.js 22+ y npm
 
-## Instalación
+## Instalación (Backend Python)
 
 1. Crear y activar el entorno virtual:
 
@@ -74,7 +79,28 @@ Actualizar el historial (usando un archivo previo local o la URL de GitHub Pages
 python -m monitor.history --previous https://facupeletay.github.io/qa-api-monitor/history.json --run results/run.json --output site/history.json
 ```
 
-## Cómo correr los tests y el linter
+## Cómo correr el Dashboard localmente (`dashboard/`)
+
+En modo desarrollo (`npm run dev`), Vite sirve automáticamente el fixture de ejemplo `dashboard/sample-history.json` (con múltiples días e incidentes de distintas categorías) sin incluirlo en el build de producción:
+
+```powershell
+cd dashboard
+npm install
+npm run dev
+```
+
+Abrir en el navegador: `http://localhost:5173/qa-api-monitor/`
+
+Para ejecutar linter, tests unitarios (Vitest) y el build de producción del dashboard:
+
+```powershell
+cd dashboard
+npm run lint
+npm test
+npm run build
+```
+
+## Cómo correr los tests y el linter (Python)
 
 Ejecutar la suite de pruebas con cobertura (`pytest`, `respx` y `pytest-cov`):
 

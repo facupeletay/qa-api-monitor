@@ -1,0 +1,363 @@
+{
+  "generated_at": "2026-10-17T18:00:00Z",
+  "runs": [
+    {
+      "timestamp": "2026-10-05T12:00:00Z",
+      "results": [
+        {
+          "name": "DolarApi - Dolar Oficial",
+          "url": "https://dolarapi.com/v1/dolares/oficial",
+          "timestamp": "2026-10-05T12:00:00Z",
+          "status_code": 200,
+          "latency_ms": 215.4,
+          "total_duration_ms": 215.4,
+          "status_category": "ok",
+          "error": null,
+          "attempts": 1,
+          "ok": true
+        },
+        {
+          "name": "Open-Meteo - Clima CABA",
+          "url": "https://api.open-meteo.com/v1/forecast?latitude=-34.61&longitude=-58.38&current=temperature_2m",
+          "timestamp": "2026-10-05T12:00:01Z",
+          "status_code": 429,
+          "latency_ms": 180.2,
+          "total_duration_ms": 180.2,
+          "status_category": "client_error",
+          "error": "Status HTTP inesperado: recibido 429, esperado 200",
+          "attempts": 1,
+          "ok": false
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-11T12:00:00Z",
+      "results": [
+        {
+          "name": "DolarApi - Dolar Oficial",
+          "url": "https://dolarapi.com/v1/dolares/oficial",
+          "timestamp": "2026-10-11T12:00:00Z",
+          "status_code": 200,
+          "latency_ms": 198.7,
+          "total_duration_ms": 198.7,
+          "status_category": "ok",
+          "error": null,
+          "attempts": 1,
+          "ok": true
+        },
+        {
+          "name": "Open-Meteo - Clima CABA",
+          "url": "https://api.open-meteo.com/v1/forecast?latitude=-34.61&longitude=-58.38&current=temperature_2m",
+          "timestamp": "2026-10-11T12:00:01Z",
+          "status_code": 200,
+          "latency_ms": 620.5,
+          "total_duration_ms": 620.5,
+          "status_category": "ok",
+          "error": null,
+          "attempts": 1,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-12T12:00:00Z",
+      "results": [
+        {
+          "name": "DolarApi - Dolar Oficial",
+          "url": "https://dolarapi.com/v1/dolares/oficial",
+          "timestamp": "2026-10-12T12:00:00Z",
+          "status_code": 503,
+          "latency_ms": 412.0,
+          "total_duration_ms": 2690.4,
+          "status_category": "server_error",
+          "error": "Status HTTP inesperado: recibido 503, esperado 200",
+          "attempts": 3,
+          "ok": false
+        },
+        {
+          "name": "Open-Meteo - Clima CABA",
+          "url": "https://api.open-meteo.com/v1/forecast?latitude=-34.61&longitude=-58.38&current=temperature_2m",
+          "timestamp": "2026-10-12T12:00:03Z",
+          "status_code": 200,
+          "latency_ms": 590.1,
+          "total_duration_ms": 590.1,
+          "status_category": "ok",
+          "error": null,
+          "attempts": 1,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-13T12:00:00Z",
+      "results": [
+        {
+          "name": "DolarApi - Dolar Oficial",
+          "url": "https://dolarapi.com/v1/dolares/oficial",
+          "timestamp": "2026-10-13T12:00:00Z",
+          "status_code": 200,
+          "latency_ms": 230.8,
+          "total_duration_ms": 230.8,
+          "status_category": "ok",
+          "error": null,
+          "attempts": 1,
+          "ok": true
+        },
+        {
+          "name": "Open-Meteo - Clima CABA",
+          "url": "https://api.open-meteo.com/v1/forecast?latitude=-34.61&longitude=-58.38&current=temperature_2m",
+          "timestamp": "2026-10-13T12:00:01Z",
+          "status_code": null,
+          "latency_ms": 5002.1,
+          "total_duration_ms": 16505.8,
+          "status_category": "network_error",
+          "error": "Error de red (TimeoutException): timed out tras 3 intentos",
+          "attempts": 3,
+          "ok": false
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-14T12:00:00Z",
+      "results": [
+        {
+          "name": "DolarApi - Dolar Oficial",
+          "url": "https://dolarapi.com/v1/dolares/oficial",
+          "timestamp": "2026-10-14T12:00:00Z",
+          "status_code": 200,
+          "latency_ms": 245.2,
+          "total_duration_ms": 245.2,
+          "status_category": "contract_error",
+          "error": "Contrato inválido (dolar_api): venta -> Input should be a valid number",
+          "attempts": 1,
+          "ok": false
+        },
+        {
+          "name": "Open-Meteo - Clima CABA",
+          "url": "https://api.open-meteo.com/v1/forecast?latitude=-34.61&longitude=-58.38&current=temperature_2m",
+          "timestamp": "2026-10-14T12:00:01Z",
+          "status_code": 200,
+          "latency_ms": 640.3,
+          "total_duration_ms": 640.3,
+          "status_category": "ok",
+          "error": null,
+          "attempts": 1,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-15T12:00:00Z",
+      "results": [
+        {
+          "name": "DolarApi - Dolar Oficial",
+          "url": "https://dolarapi.com/v1/dolares/oficial",
+          "timestamp": "2026-10-15T12:00:00Z",
+          "status_code": 200,
+          "latency_ms": 210.4,
+          "total_duration_ms": 210.4,
+          "status_category": "ok",
+          "error": null,
+          "attempts": 1,
+          "ok": true
+        },
+        {
+          "name": "Open-Meteo - Clima CABA",
+          "url": "https://api.open-meteo.com/v1/forecast?latitude=-34.61&longitude=-58.38&current=temperature_2m",
+          "timestamp": "2026-10-15T12:00:01Z",
+          "status_code": 200,
+          "latency_ms": 710.8,
+          "total_duration_ms": 710.8,
+          "status_category": "ok",
+          "error": null,
+          "attempts": 1,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-16T18:00:00Z",
+      "results": [
+        {
+          "name": "DolarApi - Dolar Oficial",
+          "url": "https://dolarapi.com/v1/dolares/oficial",
+          "timestamp": "2026-10-16T18:00:00Z",
+          "status_code": 200,
+          "latency_ms": 265.0,
+          "total_duration_ms": 265.0,
+          "status_category": "ok",
+          "error": null,
+          "attempts": 1,
+          "ok": true
+        },
+        {
+          "name": "Open-Meteo - Clima CABA",
+          "url": "https://api.open-meteo.com/v1/forecast?latitude=-34.61&longitude=-58.38&current=temperature_2m",
+          "timestamp": "2026-10-16T18:00:01Z",
+          "status_code": 200,
+          "latency_ms": 2840.5,
+          "total_duration_ms": 2840.5,
+          "status_category": "degraded",
+          "error": "Latencia de 2840.50 ms superó el máximo permitido de 2500.00 ms",
+          "attempts": 1,
+          "ok": false
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-17T06:00:00Z",
+      "results": [
+        {
+          "name": "DolarApi - Dolar Oficial",
+          "url": "https://dolarapi.com/v1/dolares/oficial",
+          "timestamp": "2026-10-17T06:00:00Z",
+          "status_code": 200,
+          "latency_ms": 225.3,
+          "total_duration_ms": 225.3,
+          "status_category": "ok",
+          "error": null,
+          "attempts": 1,
+          "ok": true
+        },
+        {
+          "name": "Open-Meteo - Clima CABA",
+          "url": "https://api.open-meteo.com/v1/forecast?latitude=-34.61&longitude=-58.38&current=temperature_2m",
+          "timestamp": "2026-10-17T06:00:01Z",
+          "status_code": 200,
+          "latency_ms": 685.2,
+          "total_duration_ms": 685.2,
+          "status_category": "ok",
+          "error": null,
+          "attempts": 1,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-17T12:00:00Z",
+      "results": [
+        {
+          "name": "DolarApi - Dolar Oficial",
+          "url": "https://dolarapi.com/v1/dolares/oficial",
+          "timestamp": "2026-10-17T12:00:00Z",
+          "status_code": 200,
+          "latency_ms": 240.1,
+          "total_duration_ms": 240.1,
+          "status_category": "ok",
+          "error": null,
+          "attempts": 1,
+          "ok": true
+        },
+        {
+          "name": "Open-Meteo - Clima CABA",
+          "url": "https://api.open-meteo.com/v1/forecast?latitude=-34.61&longitude=-58.38&current=temperature_2m",
+          "timestamp": "2026-10-17T12:00:01Z",
+          "status_code": 200,
+          "latency_ms": 612.4,
+          "total_duration_ms": 612.4,
+          "status_category": "ok",
+          "error": null,
+          "attempts": 1,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "timestamp": "2026-10-17T18:00:00Z",
+      "results": [
+        {
+          "name": "DolarApi - Dolar Oficial",
+          "url": "https://dolarapi.com/v1/dolares/oficial",
+          "timestamp": "2026-10-17T18:00:00Z",
+          "status_code": 200,
+          "latency_ms": 218.9,
+          "total_duration_ms": 218.9,
+          "status_category": "ok",
+          "error": null,
+          "attempts": 1,
+          "ok": true
+        },
+        {
+          "name": "Open-Meteo - Clima CABA",
+          "url": "https://api.open-meteo.com/v1/forecast?latitude=-34.61&longitude=-58.38&current=temperature_2m",
+          "timestamp": "2026-10-17T18:00:01Z",
+          "status_code": 200,
+          "latency_ms": 598.6,
+          "total_duration_ms": 598.6,
+          "status_category": "ok",
+          "error": null,
+          "attempts": 1,
+          "ok": true
+        }
+      ]
+    }
+  ],
+  "stats": {
+    "DolarApi - Dolar Oficial": {
+      "last_status_category": "ok",
+      "last_timestamp": "2026-10-17T18:00:00Z",
+      "max_latency_ms": 2500.0,
+      "window_24h": {
+        "total_checks": 4,
+        "uptime_pct": 100.0,
+        "latency_p50_ms": 232.7,
+        "latency_p95_ms": 261.26,
+        "by_category": {
+          "ok": 4,
+          "degraded": 0,
+          "contract_error": 0,
+          "client_error": 0,
+          "server_error": 0,
+          "network_error": 0
+        }
+      },
+      "window_7d": {
+        "total_checks": 9,
+        "uptime_pct": 77.78,
+        "latency_p50_ms": 230.8,
+        "latency_p95_ms": 353.2,
+        "by_category": {
+          "ok": 7,
+          "degraded": 0,
+          "contract_error": 1,
+          "client_error": 0,
+          "server_error": 1,
+          "network_error": 0
+        }
+      }
+    },
+    "Open-Meteo - Clima CABA": {
+      "last_status_category": "ok",
+      "last_timestamp": "2026-10-17T18:00:01Z",
+      "max_latency_ms": 2500.0,
+      "window_24h": {
+        "total_checks": 4,
+        "uptime_pct": 75.0,
+        "latency_p50_ms": 648.8,
+        "latency_p95_ms": 2517.21,
+        "by_category": {
+          "ok": 3,
+          "degraded": 1,
+          "contract_error": 0,
+          "client_error": 0,
+          "server_error": 0,
+          "network_error": 0
+        }
+      },
+      "window_7d": {
+        "total_checks": 9,
+        "uptime_pct": 77.78,
+        "latency_p50_ms": 630.4,
+        "latency_p95_ms": 2095.11,
+        "by_category": {
+          "ok": 7,
+          "degraded": 1,
+          "contract_error": 0,
+          "client_error": 0,
+          "server_error": 0,
+          "network_error": 1
+        }
+      }
+    }
+  }
+}

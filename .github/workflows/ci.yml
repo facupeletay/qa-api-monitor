@@ -36,3 +36,31 @@ jobs:
 
       - name: Ejecutar tests con cobertura mínima del 85%
         run: pytest --cov=monitor --cov-report=term-missing --cov-fail-under=85
+
+  dashboard:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dashboard
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v7
+
+      - name: Configurar Node.js con caché de npm
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: dashboard/package-lock.json
+
+      - name: Instalar dependencias (npm ci)
+        run: npm ci
+
+      - name: Ejecutar linter (npm run lint)
+        run: npm run lint
+
+      - name: Ejecutar tests unitarios (npm test)
+        run: npm test
+
+      - name: Verificar build de producción (npm run build)
+        run: npm run build

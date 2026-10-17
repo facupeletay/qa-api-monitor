@@ -66,13 +66,31 @@ jobs:
             --run results/run.json \
             --output site/history.json
 
+      - name: Configurar Node.js con caché de npm
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: dashboard/package-lock.json
+
+      - name: Instalar dependencias del dashboard (npm ci)
+        working-directory: dashboard
+        run: npm ci
+
+      - name: Compilar el dashboard estático (npm run build)
+        working-directory: dashboard
+        run: npm run build
+
+      - name: Copiar history.json al directorio de salida del build
+        run: cp site/history.json dashboard/dist/history.json
+
       - name: Configurar GitHub Pages
         uses: actions/configure-pages@v6
 
       - name: Subir artifact del sitio para GitHub Pages
         uses: actions/upload-pages-artifact@v5
         with:
-          path: site
+          path: dashboard/dist
 
       - name: Publicar en GitHub Pages
         id: deployment

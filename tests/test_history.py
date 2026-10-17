@@ -18,7 +18,14 @@ from monitor.history import (
     main,
     merge_history,
 )
-from monitor.models import ALL_STATUS_CATEGORIES, CheckResult, RunReport, RunSummary, StatusCategory
+from monitor.models import (
+    ALL_STATUS_CATEGORIES,
+    CheckResult,
+    MonitorConfig,
+    RunReport,
+    RunSummary,
+    StatusCategory,
+)
 
 
 def _make_check(
@@ -241,6 +248,17 @@ def test_history_cli_end_to_end_with_temp_files(tmp_path: Path) -> None:
     run_file = tmp_path / "run.json"
     run_file.write_text(json.dumps(curr_run.model_dump()), encoding="utf-8")
 
+    config_file = tmp_path / "monitors.yaml"
+    config_file.write_text(
+        "monitors:\n"
+        "  - name: DolarApi\n"
+        "    url: https://dolarapi.com/v1/dolares/oficial\n"
+        "    max_latency_ms: 2000\n"
+        "    timeout_s: 5\n"
+        "    retries: 1\n",
+        encoding="utf-8",
+    )
+
     output_file = tmp_path / "site" / "history.json"
 
     exit_code = main(
@@ -251,6 +269,8 @@ def test_history_cli_end_to_end_with_temp_files(tmp_path: Path) -> None:
             str(run_file),
             "--output",
             str(output_file),
+            "--config",
+            str(config_file),
         ]
     )
     assert exit_code == 0
@@ -258,8 +278,34 @@ def test_history_cli_end_to_end_with_temp_files(tmp_path: Path) -> None:
 
     saved = json.loads(output_file.read_text(encoding="utf-8"))
     assert len(saved["runs"]) == 2
+    assert saved["stats"]["DolarApi"]["max_latency_ms"] == 2000.0
     assert saved["stats"]["DolarApi"]["window_24h"]["total_checks"] == 2
     assert saved["stats"]["DolarApi"]["window_24h"]["latency_p50_ms"] == pytest.approx(120.0)
+
+
+def test_merge_history_includes_and_preserves_max_latency_ms() -> None:
+    """merge_history guarda max_latency_ms desde config y lo preserva."""
+    now = datetime(2026, 10, 17, 18, 0, 0, tzinfo=UTC)
+    ts1 = (now - timedelta(hours=2)).isoformat().replace("+00:00", "Z")
+    ts2 = now.isoformat().replace("+00:00", "Z")
+
+    monitors = [
+        MonitorConfig(
+            name="DolarApi",
+            url="https://dolarapi.com/v1/dolares/oficial",
+            max_latency_ms=1500.0,
+            timeout_s=5.0,
+            retries=1,
+        )
+    ]
+
+    first_run = _make_run_report([_make_check(timestamp=ts1, latency_ms=100.0)])
+    first_history = merge_history(None, first_run, monitors=monitors, now=now - timedelta(hours=2))
+    assert first_history.stats["DolarApi"].max_latency_ms == 1500.0
+
+    second_run = _make_run_report([_make_check(timestamp=ts2, latency_ms=120.0)])
+    second_history = merge_history(first_history, second_run, monitors=None, now=now)
+    assert second_history.stats["DolarApi"].max_latency_ms == 1500.0
 
 
 def test_history_cli_fails_with_exit_code_1_when_previous_is_corrupt(tmp_path: Path) -> None:
