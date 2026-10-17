@@ -105,13 +105,93 @@ def test_cli_returns_1_on_any_non_ok_category(
     assert payload["summary"]["by_category"]["contract_error"] == 1
 
 
-def test_cli_returns_1_when_config_is_invalid(
+def test_cli_returns_2_when_config_is_invalid(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """Código de salida 1 e impresión en stderr cuando falla la carga de configuración."""
+    """Código de salida 2 e impresión en stderr cuando falla la carga de configuración."""
     exit_code = main(["--config", str(tmp_path / "missing.yaml")])
     captured = capsys.readouterr()
 
-    assert exit_code == 1
+    assert exit_code == 2
     assert "Error de configuración" in captured.err
+
+
+def test_cli_returns_2_on_unexpected_internal_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Código de salida 2 cuando ocurre un error interno no esperado."""
+    config_file = tmp_path / "monitors.yaml"
+    config_file.write_text(
+        "monitors:\n"
+        "  - name: Dolar API\n"
+        "    url: https://dolarapi.com/v1/dolares/oficial\n"
+        "    max_latency_ms: 1000\n"
+        "    timeout_s: 2\n"
+        "    retries: 0\n",
+        encoding="utf-8",
+    )
+
+    def _boom(_monitors: object) -> object:
+        raise RuntimeError("Fallo inesperado simulado")
+
+    monkeypatch.setattr("monitor.__main__.run_monitors", _boom)
+
+    exit_code = main(["--config", str(config_file)])
+    captured = capsys.readouterr()
+
+    assert exit_code == 2
+    assert "Error interno" in captured.err
+
+
+@respx.mock
+def test_cli_writes_markdown_summary_table_and_exit_code(tmp_path: Path) -> None:
+    """--summary-md escribe tabla Markdown y línea con el código de salida."""
+    config_file = tmp_path / "monitors.yaml"
+    config_file.write_text(
+        "monitors:\n"
+        "  - name: Dolar API\n"
+        "    url: https://dolarapi.com/v1/dolares/oficial\n"
+        "    max_latency_ms: 1000\n"
+        "    timeout_s: 2\n"
+        "    retries: 0\n"
+        "    contract: dolar_api\n",
+        encoding="utf-8",
+    )
+    output_file = tmp_path / "results" / "run.json"
+    summary_md_file = tmp_path / "step_summary.md"
+
+    respx.get("https://dolarapi.com/v1/dolares/oficial").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "moneda": "USD",
+                "casa": "oficial",
+                "nombre": "Oficial",
+                "compra": 1485,
+                "venta": 1535,
+                "fechaActualizacion": "2026-10-16T18:55:00.000Z",
+            },
+        )
+    )
+
+    exit_code = main(
+        [
+            "--config",
+            str(config_file),
+            "--output",
+            str(output_file),
+            "--summary-md",
+            str(summary_md_file),
+        ]
+    )
+
+    assert exit_code == 0
+    assert summary_md_file.exists()
+    md_content = summary_md_file.read_text(encoding="utf-8")
+    assert "| Monitor | Categoría | Status | Latencia | Attempts |" in md_content
+    assert "| Dolar API | `ok` | 200 |" in md_content
+    assert "Código de salida" in md_content
+    assert "`0`" in md_content

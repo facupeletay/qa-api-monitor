@@ -169,7 +169,12 @@ def load_previous_history(source: str | None) -> HistoryReport | None:
     trimmed = source.strip()
     if trimmed.startswith(("http://", "https://")):
         try:
-            response = httpx.get(trimmed, timeout=10.0, follow_redirects=True)
+            response = httpx.get(
+                trimmed,
+                headers={"Cache-Control": "no-cache"},
+                timeout=10.0,
+                follow_redirects=True,
+            )
         except httpx.HTTPError as exc:
             raise HistoryError(
                 f"No se pudo descargar el historial anterior desde {trimmed} "

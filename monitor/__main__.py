@@ -41,6 +41,34 @@ def print_console_summary(report: RunReport, output_path: Path) -> None:
     print("=" * 78)
 
 
+def format_markdown_summary(report: RunReport, exit_code: int) -> str:
+    """Genera una tabla Markdown de resumen de la corrida y el código de salida."""
+    lines = [
+        "### Resultados de QA API Monitor",
+        "",
+        "| Monitor | Categoría | Status | Latencia | Attempts |",
+        "| :--- | :---: | :---: | ---: | ---: |",
+    ]
+    for res in report.results:
+        status_str = str(res.status_code) if res.status_code is not None else "ERR"
+        lines.append(
+            f"| {res.name} | `{res.status_category}` | {status_str} "
+            f"| {res.latency_ms:.2f} ms | {res.attempts} |"
+        )
+    lines.append("")
+    lines.append(f"**Código de salida:** `{exit_code}`")
+    return "\n".join(lines) + "\n"
+
+
+def write_markdown_summary(report: RunReport, exit_code: int, summary_path: str | Path) -> Path:
+    """Escribe (o agrega) la tabla Markdown en la ruta indicada (ej. $GITHUB_STEP_SUMMARY)."""
+    target = Path(summary_path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with target.open("a", encoding="utf-8") as fh:
+        fh.write(format_markdown_summary(report, exit_code))
+    return target
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="monitor",
@@ -56,6 +84,11 @@ def build_parser() -> argparse.ArgumentParser:
         default="results/run.json",
         help="Ruta al archivo JSON de salida (default: results/run.json)",
     )
+    parser.add_argument(
+        "--summary-md",
+        default=None,
+        help="Ruta opcional donde escribir un resumen en tabla Markdown (ej. $GITHUB_STEP_SUMMARY)",
+    )
     return parser
 
 
@@ -67,13 +100,22 @@ def main(argv: Sequence[str] | None = None) -> int:
         monitors = load_config(args.config)
     except ConfigError as exc:
         print(f"Error de configuración: {exc}", file=sys.stderr)
-        return 1
+        return 2
+    except Exception as exc:
+        print(f"Error interno al cargar configuración: {exc}", file=sys.stderr)
+        return 2
 
-    report = run_monitors(monitors)
-    saved_path = save_report(report, args.output)
-    print_console_summary(report, saved_path)
-
-    return 0 if all(item.status_category == "ok" for item in report.results) else 1
+    try:
+        report = run_monitors(monitors)
+        saved_path = save_report(report, args.output)
+        print_console_summary(report, saved_path)
+        exit_code = 0 if all(item.status_category == "ok" for item in report.results) else 1
+        if args.summary_md:
+            write_markdown_summary(report, exit_code, args.summary_md)
+        return exit_code
+    except Exception as exc:
+        print(f"Error interno durante la ejecución del monitor: {exc}", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":

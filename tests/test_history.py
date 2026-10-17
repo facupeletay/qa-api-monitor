@@ -204,6 +204,27 @@ def test_fetch_previous_history_remote_200_404_5xx_timeout_and_corrupt_json() ->
         load_previous_history(url)
 
 
+@respx.mock
+def test_fetch_previous_history_with_cache_busting_query_and_no_cache_header() -> None:
+    """Verifica que una URL con query string (?t=...) se maneje bien y envíe Cache-Control."""
+    url_with_query = "https://facupeletay.github.io/qa-api-monitor/history.json?t=987654-1"
+    now = datetime(2026, 10, 17, 18, 0, 0, tzinfo=UTC)
+    ts = now.isoformat().replace("+00:00", "Z")
+    valid_history = merge_history(None, _make_run_report([_make_check(timestamp=ts)]), now=now)
+
+    route = respx.get(url_with_query).mock(
+        return_value=httpx.Response(200, json=valid_history.model_dump())
+    )
+
+    loaded = load_previous_history(url_with_query)
+
+    assert loaded is not None
+    assert len(loaded.runs) == 1
+    assert route.call_count == 1
+    sent_request = route.calls.last.request
+    assert sent_request.headers.get("Cache-Control") == "no-cache"
+
+
 def test_history_cli_end_to_end_with_temp_files(tmp_path: Path) -> None:
     """CLI de history punta a punta con archivos temporales."""
     now = datetime(2026, 10, 17, 18, 0, 0, tzinfo=UTC)

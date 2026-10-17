@@ -21,8 +21,8 @@ flowchart LR
     D --> E["GitHub Pages (site/index.html)"]
 ```
 
-1. **`python -m monitor`** consulta cada API configurada en `config/monitors.yaml`, valida status HTTP, contrato JSON y SLA de latencia, y genera `results/run.json`.
-2. **`python -m monitor.history`** descarga el `history.json` publicado actualmente en GitHub Pages (o arranca vacío si devuelve `404` en la primera corrida; si hay error `5xx`, timeout o JSON corrupto, aborta para proteger el historial), agrega la corrida nueva, descarta registros de más de 30 días y calcula métricas de las últimas **24 horas** y **7 días** (uptime %, p50, p95 y conteo por categoría).
+1. **`python -m monitor`** consulta cada API configurada en `config/monitors.yaml`, valida status HTTP, contrato JSON y SLA de latencia, genera `results/run.json` y opcionalmente escribe una tabla resumen en Markdown (`--summary-md`).
+2. **`python -m monitor.history`** descarga el `history.json` publicado actualmente en GitHub Pages con cache-busting y `Cache-Control: no-cache` (o arranca vacío si devuelve `404` en la primera corrida; si hay error `5xx`, timeout o JSON corrupto, aborta para proteger el historial), agrega la corrida nueva, descarta registros de más de 30 días y calcula métricas de las últimas **24 horas** y **7 días** (uptime %, p50, p95 y conteo por categoría).
 3. **GitHub Pages** despliega la carpeta `site/` con `index.html` y el nuevo `history.json`.
 
 ---
@@ -53,6 +53,20 @@ Ejecutar los checks:
 ```powershell
 python -m monitor
 ```
+
+Opcionalmente con rutas personalizadas y resumen Markdown:
+
+```powershell
+python -m monitor --config config/monitors.yaml --output results/run.json --summary-md results/summary.md
+```
+
+### Códigos de salida de `python -m monitor`
+
+| Código | Significado |
+| :---: | :--- |
+| `0` | Todos los checks finalizaron en categoría `ok`. |
+| `1` | Al menos un check finalizó en estado distinto de `ok` (`degraded`, `contract_error`, `client_error`, `server_error`, `network_error`). |
+| `2` | Error de configuración (`ConfigError`, archivo YAML inexistente o inválido) o error interno no esperado. |
 
 Actualizar el historial (usando un archivo previo local o la URL de GitHub Pages):
 
