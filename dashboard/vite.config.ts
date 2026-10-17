@@ -35,6 +35,26 @@ export default defineConfig({
       },
     },
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          const normalized = id.replaceAll("\\", "/");
+          if (!normalized.includes("/node_modules/")) {
+            return undefined;
+          }
+          if (
+            normalized.includes("/node_modules/react/") ||
+            normalized.includes("/node_modules/react-dom/") ||
+            normalized.includes("/node_modules/scheduler/")
+          ) {
+            return "react";
+          }
+          return "recharts";
+        },
+      },
+    },
+  },
   test: {
     globals: true,
     environment: "jsdom",

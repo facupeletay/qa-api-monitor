@@ -1,0 +1,30 @@
+{
+  "MonitorA": {
+    "window_24h": {
+      "total_checks": 5,
+      "uptime_pct": 40.0,
+      "latency_p50_ms": 160.0,
+      "latency_p95_ms": 2067.0
+    },
+    "window_7d": {
+      "total_checks": 7,
+      "uptime_pct": 42.86,
+      "latency_p50_ms": 160.0,
+      "latency_p95_ms": 1950.0
+    }
+  },
+  "MonitorB": {
+    "window_24h": {
+      "total_checks": 5,
+      "uptime_pct": 60.0,
+      "latency_p50_ms": 300.0,
+      "latency_p95_ms": 395.0
+    },
+    "window_7d": {
+      "total_checks": 7,
+      "uptime_pct": 42.86,
+      "latency_p50_ms": 300.0,
+      "latency_p95_ms": 1452.5
+    }
+  }
+}
