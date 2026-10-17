@@ -1,6 +1,31 @@
 # qa-api-monitor
 
-Monitor de APIs en Python que lee endpoints desde un archivo YAML (`config/monitors.yaml`), ejecuta peticiones HTTP, mide la latencia, valida el código de estado esperado y guarda el reporte de resultados en `results/run.json`.
+[![CI](https://github.com/facupeletay/qa-api-monitor/actions/workflows/ci.yml/badge.svg)](https://github.com/facupeletay/qa-api-monitor/actions/workflows/ci.yml)
+
+Monitor de APIs en Python que lee endpoints desde un archivo YAML (`config/monitors.yaml`), ejecuta peticiones HTTP con reintentos y backoff exponencial, mide la latencia por intento y la duración total, valida esquemas/contratos JSON con Pydantic v2, clasifica las fallas por categoría y publica un reporte histórico en **GitHub Pages**.
+
+🌐 **Sitio publicado (Estado e Historial):** [https://facupeletay.github.io/qa-api-monitor/](https://facupeletay.github.io/qa-api-monitor/)
+
+---
+
+## Cómo funciona
+
+El flujo automatizado corre cada 6 horas en GitHub Actions sin ensuciar el historial de commits del repositorio:
+
+```mermaid
+flowchart LR
+    A["python -m monitor"] --> B["results/run.json"]
+    P["GitHub Pages (history.json previo)"] --> C["python -m monitor.history"]
+    B --> C
+    C --> D["site/history.json (ventana 30d + stats 24h/7d)"]
+    D --> E["GitHub Pages (site/index.html)"]
+```
+
+1. **`python -m monitor`** consulta cada API configurada en `config/monitors.yaml`, valida status HTTP, contrato JSON y SLA de latencia, y genera `results/run.json`.
+2. **`python -m monitor.history`** descarga el `history.json` publicado actualmente en GitHub Pages (o arranca vacío si devuelve `404` en la primera corrida; si hay error `5xx`, timeout o JSON corrupto, aborta para proteger el historial), agrega la corrida nueva, descarta registros de más de 30 días y calcula métricas de las últimas **24 horas** y **7 días** (uptime %, p50, p95 y conteo por categoría).
+3. **GitHub Pages** despliega la carpeta `site/` con `index.html` y el nuevo `history.json`.
+
+---
 
 ## Requisitos
 
@@ -21,27 +46,23 @@ py -3.12 -m venv .venv
 python -m pip install -e ".[dev]"
 ```
 
-## Cómo correr el monitor
+## Cómo correr el monitor y el historial localmente
 
-Desde la raíz del proyecto:
+Ejecutar los checks:
 
 ```powershell
 python -m monitor
 ```
 
-Opcionalmente se puede especificar otra ruta de configuración o de salida:
+Actualizar el historial (usando un archivo previo local o la URL de GitHub Pages):
 
 ```powershell
-python -m monitor --config config/monitors.yaml --output results/run.json
+python -m monitor.history --previous https://facupeletay.github.io/qa-api-monitor/history.json --run results/run.json --output site/history.json
 ```
-
-- Genera `results/run.json` con el detalle de cada check y el resumen (`total`, `ok`, `failed`).
-- Imprime un resumen legible por consola.
-- Devuelve código de salida `0` si todos los checks pasaron, o `1` si alguno falló.
 
 ## Cómo correr los tests y el linter
 
-Ejecutar la suite de pruebas con cobertura (usando `pytest`, `respx` y `pytest-cov`):
+Ejecutar la suite de pruebas con cobertura (`pytest`, `respx` y `pytest-cov`):
 
 ```powershell
 pytest --cov=monitor --cov-report=term-missing

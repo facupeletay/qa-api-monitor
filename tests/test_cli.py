@@ -50,6 +50,7 @@ def test_cli_returns_0_when_all_checks_ok_and_includes_category_counts(
 
     assert exit_code == 0
     assert "category=ok" in captured.out
+    assert "Resumen: Total=1 | OK=1 | Fallidos=0\n" in captured.out
     assert output_file.exists()
 
     payload = json.loads(output_file.read_text(encoding="utf-8"))
@@ -96,6 +97,7 @@ def test_cli_returns_1_on_any_non_ok_category(
 
     assert exit_code == 1
     assert "category=contract_error" in captured.out
+    assert "(contract_error=1)" in captured.out
 
     payload = json.loads(output_file.read_text(encoding="utf-8"))
     assert payload["summary"]["ok"] == 0

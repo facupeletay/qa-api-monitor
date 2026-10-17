@@ -22,5 +22,6 @@ build/
 dist/
 *.egg-info/
 
-# Monitor output results
+# Monitor output results & generated history (not committed to git)
 results/
+site/history.json

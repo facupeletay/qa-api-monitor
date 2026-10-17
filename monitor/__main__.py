@@ -29,10 +29,13 @@ def print_console_summary(report: RunReport, output_path: Path) -> None:
         if res.error:
             print(f"       -> {res.error}")
     print("-" * 78)
-    cats = ", ".join(f"{k}={v}" for k, v in report.summary.by_category.items() if v > 0)
+    non_ok_cats = ", ".join(
+        f"{k}={v}" for k, v in report.summary.by_category.items() if k != "ok" and v > 0
+    )
+    extra = f" ({non_ok_cats})" if non_ok_cats else ""
     print(
         f"Resumen: Total={report.summary.total} | "
-        f"OK={report.summary.ok} | Fallidos={report.summary.failed} ({cats})"
+        f"OK={report.summary.ok} | Fallidos={report.summary.failed}{extra}"
     )
     print(f"Reporte guardado en: {output_path}")
     print("=" * 78)

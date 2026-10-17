@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QA API Monitor — Estado e Historial</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --surface-elevated: #26354d;
+      --border: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+
+      --cat-ok-bg: rgba(34, 197, 94, 0.16);
+      --cat-ok-fg: #4ade80;
+      --cat-ok-border: rgba(74, 222, 128, 0.4);
+
+      --cat-degraded-bg: rgba(234, 179, 8, 0.16);
+      --cat-degraded-fg: #facc15;
+      --cat-degraded-border: rgba(250, 204, 21, 0.4);
+
+      --cat-contract-bg: rgba(168, 85, 247, 0.18);
+      --cat-contract-fg: #c084fc;
+      --cat-contract-border: rgba(192, 132, 252, 0.4);
+
+      --cat-client-bg: rgba(249, 115, 22, 0.18);
+      --cat-client-fg: #fb923c;
+      --cat-client-border: rgba(251, 146, 60, 0.4);
+
+      --cat-server-bg: rgba(239, 68, 68, 0.18);
+      --cat-server-fg: #f87171;
+      --cat-server-border: rgba(248, 113, 113, 0.4);
+
+      --cat-network-bg: rgba(244, 63, 94, 0.18);
+      --cat-network-fg: #fb7185;
+      --cat-network-border: rgba(251, 113, 133, 0.4);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 2rem 1rem;
+    }
+
+    .container {
+      max-inline-size: 1080px;
+      margin-inline: auto;
+    }
+
+    header {
+      margin-block-end: 1.75rem;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 1rem;
+      border-block-end: 1px solid var(--border);
+      padding-block-end: 1rem;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(1.35rem, 2.5vw, 1.85rem);
+      letter-spacing: -0.02em;
+    }
+
+    .subtitle {
+      margin: 0.25rem 0 0;
+      color: var(--text-muted);
+      font-size: 0.92rem;
+    }
+
+    .meta-pill {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 0.4rem 0.75rem;
+      border-radius: 999px;
+    }
+
+    .table-wrapper {
+      overflow: auto;
+      max-inline-size: 100%;
+      container-type: inline-size;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.35);
+    }
+
+    table {
+      inline-size: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      --label-2: "Último Estado";
+      --label-3: "Uptime 24h";
+      --label-4: "Uptime 7d";
+      --label-5: "Latencia 24h (p50 / p95)";
+      --label-6: "Latencia 7d (p50 / p95)";
+      --label-7: "Última Corrida";
+    }
+
+    thead {
+      position: sticky;
+      inset-block-start: 0;
+      z-index: 1;
+      background: var(--surface-elevated);
+    }
+
+    th,
+    td {
+      padding: 0.9rem 1rem;
+      text-align: start;
+      border-block-end: 1px solid var(--border);
+      font-size: 0.92rem;
+    }
+
+    thead th {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    tbody tr:last-child th,
+    tbody tr:last-child td {
+      border-block-end: none;
+    }
+
+    tbody th {
+      position: sticky;
+      inset-inline-start: 0;
+      background: var(--surface);
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.25rem 0.65rem;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      border: 1px solid transparent;
+    }
+
+    .badge::before {
+      content: "";
+      inline-size: 0.48rem;
+      block-size: 0.48rem;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .cat-ok {
+      background: var(--cat-ok-bg);
+      color: var(--cat-ok-fg);
+      border-color: var(--cat-ok-border);
+    }
+
+    .cat-degraded {
+      background: var(--cat-degraded-bg);
+      color: var(--cat-degraded-fg);
+      border-color: var(--cat-degraded-border);
+    }
+
+    .cat-contract_error {
+      background: var(--cat-contract-bg);
+      color: var(--cat-contract-fg);
+      border-color: var(--cat-contract-border);
+    }
+
+    .cat-client_error {
+      background: var(--cat-client-bg);
+      color: var(--cat-client-fg);
+      border-color: var(--cat-client-border);
+    }
+
+    .cat-server_error {
+      background: var(--cat-server-bg);
+      color: var(--cat-server-fg);
+      border-color: var(--cat-server-border);
+    }
+
+    .cat-network_error {
+      background: var(--cat-network-bg);
+      color: var(--cat-network-fg);
+      border-color: var(--cat-network-border);
+    }
+
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.86rem;
+    }
+
+    .status-box {
+      padding: 1.5rem;
+      text-align: center;
+      color: var(--text-muted);
+    }
+
+    .status-box.error {
+      color: var(--cat-server-fg);
+    }
+
+    @container (width < 700px) {
+      table,
+      thead,
+      tbody,
+      tr,
+      th,
+      td {
+        display: block;
+      }
+
+      thead {
+        display: none;
+      }
+
+      tbody tr {
+        margin: 0.75rem;
+        border: 1px solid var(--border);
+        border-radius: 0.6rem;
+        overflow: hidden;
+      }
+
+      tbody th {
+        position: sticky;
+        inset-block-start: 0;
+        z-index: 2;
+        background: var(--surface-elevated);
+        border-block-end: 1px solid var(--border);
+      }
+
+      tbody td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        padding: 0.65rem 1rem;
+      }
+
+      td:nth-child(2)::before {
+        content: var(--label-2) ": " / var(--label-2);
+        color: var(--text-muted);
+        font-weight: 500;
+      }
+
+      td:nth-child(3)::before {
+        content: var(--label-3) ": " / var(--label-3);
+        color: var(--text-muted);
+        font-weight: 500;
+      }
+
+      td:nth-child(4)::before {
+        content: var(--label-4) ": " / var(--label-4);
+        color: var(--text-muted);
+        font-weight: 500;
+      }
+
+      td:nth-child(5)::before {
+        content: var(--label-5) ": " / var(--label-5);
+        color: var(--text-muted);
+        font-weight: 500;
+      }
+
+      td:nth-child(6)::before {
+        content: var(--label-6) ": " / var(--label-6);
+        color: var(--text-muted);
+        font-weight: 500;
+      }
+
+      td:nth-child(7)::before {
+        content: var(--label-7) ": " / var(--label-7);
+        color: var(--text-muted);
+        font-weight: 500;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>QA API Monitor</h1>
+        <p class="subtitle">Estado en tiempo real, contratos JSON y métricas de latencia (24h / 7d)</p>
+      </div>
+      <div id="generated-meta" class="meta-pill">Cargando historial...</div>
+    </header>
+
+    <div class="table-wrapper" id="content-area">
+      <div class="status-box" id="loading-msg">Cargando datos de <code>history.json</code>...</div>
+    </div>
+  </div>
+
+  <script>
+    function formatPct(val) {
+      return typeof val === "number" ? `${val.toFixed(2)}%` : "—";
+    }
+
+    function formatLatencyPair(w) {
+      if (!w || (w.latency_p50_ms == null && w.latency_p95_ms == null)) {
+        return "—";
+      }
+      const p50 = w.latency_p50_ms != null ? `${w.latency_p50_ms.toFixed(1)} ms` : "—";
+      const p95 = w.latency_p95_ms != null ? `${w.latency_p95_ms.toFixed(1)} ms` : "—";
+      return `${p50} / ${p95}`;
+    }
+
+    function formatDate(isoStr) {
+      if (!isoStr) return "—";
+      const d = new Date(isoStr);
+      if (Number.isNaN(d.getTime())) return isoStr;
+      return d.toLocaleString("es-AR", {
+        dateStyle: "short",
+        timeStyle: "medium",
+      });
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement("div");
+      div.textContent = String(str ?? "");
+      return div.innerHTML;
+    }
+
+    async function loadDashboard() {
+      const contentArea = document.getElementById("content-area");
+      const metaEl = document.getElementById("generated-meta");
+
+      try {
+        const resp = await fetch("./history.json", { cache: "no-store" });
+        if (!resp.ok) {
+          throw new Error(`HTTP ${resp.status} al leer history.json`);
+        }
+        const data = await resp.json();
+        const stats = data.stats || {};
+        const monitorNames = Object.keys(stats);
+
+        const totalRuns = Array.isArray(data.runs) ? data.runs.length : 0;
+        metaEl.textContent = `Actualizado: ${formatDate(data.generated_at)} • Corridas (30d): ${totalRuns}`;
+
+        if (monitorNames.length === 0) {
+          contentArea.innerHTML = `<div class="status-box">No hay monitores registrados en el historial.</div>`;
+          return;
+        }
+
+        const rowsHtml = monitorNames.map((name) => {
+          const item = stats[name];
+          const cat = item.last_status_category || "network_error";
+          const w24 = item.window_24h || {};
+          const w7d = item.window_7d || {};
+
+          return `
+            <tr>
+              <th scope="row">${escapeHtml(name)}</th>
+              <td><span class="badge cat-${escapeHtml(cat)}">${escapeHtml(cat)}</span></td>
+              <td class="mono">${escapeHtml(formatPct(w24.uptime_pct))}</td>
+              <td class="mono">${escapeHtml(formatPct(w7d.uptime_pct))}</td>
+              <td class="mono">${escapeHtml(formatLatencyPair(w24))}</td>
+              <td class="mono">${escapeHtml(formatLatencyPair(w7d))}</td>
+              <td class="mono">${escapeHtml(formatDate(item.last_timestamp))}</td>
+            </tr>
+          `;
+        }).join("");
+
+        contentArea.innerHTML = `
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Monitor</th>
+                <th scope="col">Último Estado</th>
+                <th scope="col">Uptime 24h</th>
+                <th scope="col">Uptime 7d</th>
+                <th scope="col">Latencia 24h (p50 / p95)</th>
+                <th scope="col">Latencia 7d (p50 / p95)</th>
+                <th scope="col">Última Corrida</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+        `;
+      } catch (err) {
+        metaEl.textContent = "Sin datos disponibles";
+        contentArea.innerHTML = `
+          <div class="status-box error">
+            No se pudo cargar <code>history.json</code> (${escapeHtml(err.message)}).
+          </div>
+        `;
+      }
+    }
+
+    loadDashboard();
+  </script>
+</body>
+</html>

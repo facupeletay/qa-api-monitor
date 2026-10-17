@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python 3.12 con caché de pip
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Instalar dependencias de desarrollo
+        run: python -m pip install -e ".[dev]"
+
+      - name: Ejecutar linter (ruff check)
+        run: ruff check .
+
+      - name: Verificar formato (ruff format --check)
+        run: ruff format --check .
+
+      - name: Ejecutar tests con cobertura mínima del 85%
+        run: pytest --cov=monitor --cov-report=term-missing --cov-fail-under=85
