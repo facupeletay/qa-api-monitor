@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from time import perf_counter
+from time import perf_counter, sleep
 
 import httpx
 
@@ -19,17 +20,20 @@ def _utc_now_iso() -> str:
 def execute_check(
     monitor: MonitorConfig,
     client: httpx.Client | None = None,
+    sleep_fn: Callable[[float], None] | None = None,
 ) -> CheckResult:
-    """Ejecuta el check de un monitor con soporte de reintentos ante red/timeout y 5xx."""
+    """Ejecuta el check de un monitor con backoff exponencial ante errores de red/timeout y 5xx."""
     max_attempts = monitor.retries + 1
     attempts = 0
     last_status: int | None = None
     last_latency_ms = 0.0
     last_error: str | None = None
 
+    wait_fn = sleep_fn if sleep_fn is not None else sleep
     owns_client = client is None
     http_client = client if client is not None else httpx.Client()
 
+    check_start = perf_counter()
     try:
         while attempts < max_attempts:
             attempts += 1
@@ -50,6 +54,8 @@ def execute_check(
                 last_latency_ms = elapsed_ms
                 last_error = f"{type(exc).__name__}: {exc}"
                 if attempts < max_attempts:
+                    delay = monitor.backoff_base_s * (2 ** (attempts - 1))
+                    wait_fn(delay)
                     continue
                 break
 
@@ -63,6 +69,8 @@ def execute_check(
                     f"se recibió {response.status_code}"
                 )
                 if attempts < max_attempts:
+                    delay = monitor.backoff_base_s * (2 ** (attempts - 1))
+                    wait_fn(delay)
                     continue
                 break
 
@@ -72,6 +80,9 @@ def execute_check(
         if owns_client:
             http_client.close()
 
+    raw_total_ms = round((perf_counter() - check_start) * 1000, 2)
+    total_duration_ms = max(raw_total_ms, last_latency_ms)
+
     if last_status is None:
         return CheckResult(
             name=monitor.name,
@@ -79,6 +90,7 @@ def execute_check(
             timestamp=_utc_now_iso(),
             status_code=None,
             latency_ms=last_latency_ms,
+            total_duration_ms=total_duration_ms,
             ok=False,
             error=last_error or "Error de red desconocido",
             attempts=attempts,
@@ -101,6 +113,7 @@ def execute_check(
         timestamp=_utc_now_iso(),
         status_code=last_status,
         latency_ms=last_latency_ms,
+        total_duration_ms=total_duration_ms,
         ok=ok,
         error="; ".join(errors) if errors else None,
         attempts=attempts,

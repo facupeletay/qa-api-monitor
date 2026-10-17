@@ -20,6 +20,7 @@ class MonitorConfig(BaseModel):
     max_latency_ms: float = Field(gt=0)
     timeout_s: float = Field(gt=0)
     retries: int = Field(ge=0)
+    backoff_base_s: float = Field(default=0.5, ge=0)
 
     @field_validator("method", mode="before")
     @classmethod
@@ -51,6 +52,7 @@ class CheckResult(BaseModel):
     timestamp: str
     status_code: int | None
     latency_ms: float
+    total_duration_ms: float
     ok: bool
     error: str | None
     attempts: int

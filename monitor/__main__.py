@@ -22,7 +22,8 @@ def print_console_summary(report: RunReport, output_path: Path) -> None:
         status_display = str(res.status_code) if res.status_code is not None else "ERR"
         line = (
             f"[{state}] {res.name} | status={status_display} "
-            f"| latency={res.latency_ms:.2f}ms | attempts={res.attempts}"
+            f"| latency={res.latency_ms:.2f}ms | total={res.total_duration_ms:.2f}ms "
+            f"| attempts={res.attempts}"
         )
         print(line)
         if res.error:
