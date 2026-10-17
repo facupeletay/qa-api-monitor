@@ -1,3 +1,6 @@
+alert_after: 3
+alert_on_degraded: false
+
 monitors:
   - name: "DolarApi - Dolar Oficial"
     url: "https://dolarapi.com/v1/dolares/oficial"

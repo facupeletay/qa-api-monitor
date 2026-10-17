@@ -10,6 +10,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  issues: write
 
 concurrency:
   group: "qa-api-monitor-pages"
@@ -95,3 +96,13 @@ jobs:
       - name: Publicar en GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
+
+      - name: Evaluar alertas y gestionar GitHub Issues
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python -m monitor.alerts \
+            --history site/history.json \
+            --config config/monitors.yaml \
+            --summary-md "$GITHUB_STEP_SUMMARY"

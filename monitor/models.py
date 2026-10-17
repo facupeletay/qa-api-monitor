@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Literal
 from urllib.parse import urlparse
 
-from pydantic import BaseModel, Field, computed_field, field_validator
+from pydantic import BaseModel, Field, computed_field, field_validator, model_validator
 
 from monitor.contracts import CONTRACTS, get_contract
 
@@ -28,6 +28,13 @@ ALL_STATUS_CATEGORIES: tuple[StatusCategory, ...] = (
 )
 
 
+class AlertsConfig(BaseModel):
+    """Configuración global de alertas por fallas consecutivas."""
+
+    alert_after: int = Field(default=3, ge=1)
+    alert_on_degraded: bool = False
+
+
 class MonitorConfig(BaseModel):
     """Configuración de un endpoint a monitorear."""
 
@@ -40,6 +47,8 @@ class MonitorConfig(BaseModel):
     retries: int = Field(ge=0)
     backoff_base_s: float = Field(default=0.5, ge=0)
     contract: str | None = None
+    alert_after: int = Field(default=3, ge=1)
+    alert_on_degraded: bool = False
 
     @field_validator("method", mode="before")
     @classmethod
@@ -73,7 +82,29 @@ class MonitorConfig(BaseModel):
 class MonitorsFile(BaseModel):
     """Estructura raíz del archivo YAML de configuración."""
 
+    alert_after: int = Field(default=3, ge=1)
+    alert_on_degraded: bool = False
+    alerts: AlertsConfig | None = None
     monitors: list[MonitorConfig] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def propagate_alert_defaults(self) -> MonitorsFile:
+        default_after = (
+            self.alerts.alert_after
+            if self.alerts is not None and "alert_after" in self.alerts.model_fields_set
+            else self.alert_after
+        )
+        default_degraded = (
+            self.alerts.alert_on_degraded
+            if self.alerts is not None and "alert_on_degraded" in self.alerts.model_fields_set
+            else self.alert_on_degraded
+        )
+        for monitor in self.monitors:
+            if "alert_after" not in monitor.model_fields_set:
+                monitor.alert_after = default_after
+            if "alert_on_degraded" not in monitor.model_fields_set:
+                monitor.alert_on_degraded = default_degraded
+        return self
 
 
 class CheckResult(BaseModel):

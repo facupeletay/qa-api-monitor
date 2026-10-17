@@ -21,11 +21,14 @@ flowchart LR
     F["dashboard/ (npm ci && npm run build)"] --> G["dashboard/dist/"]
     D --> G
     G --> E["GitHub Pages (Dashboard React + history.json)"]
+    D --> H["python -m monitor.alerts"]
+    H --> I["GitHub Issues (label: monitor-alert)"]
 ```
 
 1. **`python -m monitor`** consulta cada API configurada en `config/monitors.yaml`, valida status HTTP, contrato JSON y SLA de latencia, genera `results/run.json` y opcionalmente escribe una tabla resumen en Markdown (`--summary-md`).
 2. **`python -m monitor.history`** descarga el `history.json` publicado actualmente en GitHub Pages con cache-busting y `Cache-Control: no-cache` (o arranca vacío si devuelve `404` en la primera corrida; si hay error `5xx`, timeout o JSON corrupto, aborta para proteger el historial), agrega la corrida nueva, descarta registros de más de 30 días y calcula métricas de las últimas **24 horas** y **7 días** (uptime %, p50, p95, SLA `max_latency_ms` y conteo por categoría).
 3. **`dashboard/` (React + Vite + TypeScript + Tailwind + Recharts)** compila el sitio estático con `base: "/qa-api-monitor/"`, copia el `history.json` actualizado dentro de `dashboard/dist/history.json` y **GitHub Pages** publica ese directorio.
+4. **`python -m monitor.alerts`** evalúa las corridas consecutivas del `history.json` actualizado y gestiona automáticamente incidentes en **GitHub Issues** (abre, comenta cambios de categoría o cierra al recuperarse).
 
 ![Vista previa del Dashboard](./docs/dashboard-preview.png)
 
@@ -77,6 +80,39 @@ Actualizar el historial (usando un archivo previo local o la URL de GitHub Pages
 
 ```powershell
 python -m monitor.history --previous https://facupeletay.github.io/qa-api-monitor/history.json --run results/run.json --output site/history.json
+```
+
+## Alertas (`monitor/alerts.py`)
+
+El módulo `monitor.alerts` analiza las fallas consecutivas de cada monitor a partir del `history.json` ya mergeado (sin estado externo adicional) y sincroniza incidentes con **GitHub Issues** mediante la API REST de GitHub (`httpx`):
+
+- **Apertura automática:** Cuando un monitor acumula `alert_after` corridas consecutivas fallidas y no tiene un Issue abierto, asegura que exista el label `monitor-alert` y abre un Issue con título fijo `[ALERTA] <nombre del monitor>`, detallando categoría, inicio de la falla, cantidad de corridas fallidas, último status HTTP/error y enlaces al dashboard y al run de Actions.
+- **Sin duplicados ni spam:** Si ya existe un Issue abierto para ese monitor, no crea otro. Solo agrega un comentario si cambió la categoría de la falla (por ejemplo, de `server_error` a `network_error`).
+- **Cierre por recuperación:** Cuando la última corrida del monitor vuelve a `ok` y existe un Issue abierto, comenta la duración total del incidente y cierra el Issue.
+- **Modo `--dry-run`:** Si se pasa `--dry-run` o si no está definida la variable de entorno `GITHUB_TOKEN`, el comando corre en modo simulación sin realizar llamadas HTTP.
+
+### Configuración en `config/monitors.yaml`
+
+Se pueden definir valores globales en la raíz del archivo y sobrescribirlos opcionalmente en cada monitor:
+
+```yaml
+alert_after: 3            # Corridas fallidas seguidas para abrir Issue (default: 3)
+alert_on_degraded: false  # Si degraded cuenta como falla para alertas (default: false)
+
+monitors:
+  - name: "DolarApi - Dolar Oficial"
+    url: "https://dolarapi.com/v1/dolares/oficial"
+    max_latency_ms: 2500
+    timeout_s: 5.0
+    retries: 2
+    contract: "dolar_api"
+    alert_after: 2        # (Opcional) pisa el valor global para este monitor
+```
+
+### Ejecución del comando de alertas
+
+```powershell
+python -m monitor.alerts --history site/history.json --config config/monitors.yaml --dry-run
 ```
 
 ## Cómo correr el Dashboard localmente (`dashboard/`)
