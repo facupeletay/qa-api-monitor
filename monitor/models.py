@@ -5,9 +5,27 @@ from __future__ import annotations
 from typing import Literal
 from urllib.parse import urlparse
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, computed_field, field_validator
+
+from monitor.contracts import CONTRACTS, get_contract
 
 HttpMethod = Literal["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"]
+StatusCategory = Literal[
+    "ok",
+    "degraded",
+    "contract_error",
+    "client_error",
+    "server_error",
+    "network_error",
+]
+ALL_STATUS_CATEGORIES: tuple[StatusCategory, ...] = (
+    "ok",
+    "degraded",
+    "contract_error",
+    "client_error",
+    "server_error",
+    "network_error",
+)
 
 
 class MonitorConfig(BaseModel):
@@ -21,6 +39,7 @@ class MonitorConfig(BaseModel):
     timeout_s: float = Field(gt=0)
     retries: int = Field(ge=0)
     backoff_base_s: float = Field(default=0.5, ge=0)
+    contract: str | None = None
 
     @field_validator("method", mode="before")
     @classmethod
@@ -36,6 +55,19 @@ class MonitorConfig(BaseModel):
         if parsed.scheme not in {"http", "https"} or not parsed.netloc:
             raise ValueError(f"La URL '{value}' debe ser una URL HTTP/HTTPS válida.")
         return value.strip()
+
+    @field_validator("contract")
+    @classmethod
+    def validate_contract_exists(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        if get_contract(normalized) is None:
+            available = ", ".join(sorted(CONTRACTS))
+            raise ValueError(
+                f"Contrato desconocido: '{normalized}'. Contratos disponibles: {available}"
+            )
+        return normalized
 
 
 class MonitorsFile(BaseModel):
@@ -53,9 +85,15 @@ class CheckResult(BaseModel):
     status_code: int | None
     latency_ms: float
     total_duration_ms: float
-    ok: bool
+    status_category: StatusCategory
     error: str | None
     attempts: int
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def ok(self) -> bool:
+        """Campo derivado a partir de status_category (fuente de verdad)."""
+        return self.status_category == "ok"
 
 
 class RunSummary(BaseModel):
@@ -64,6 +102,7 @@ class RunSummary(BaseModel):
     total: int
     ok: int
     failed: int
+    by_category: dict[StatusCategory, int]
 
 
 class RunReport(BaseModel):

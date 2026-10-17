@@ -1,4 +1,4 @@
-"""Ejecución de checks HTTP, manejo de reintentos y generación de reportes."""
+"""Ejecución de checks HTTP, validación de contratos, clasificación y reportes."""
 
 from __future__ import annotations
 
@@ -10,7 +10,15 @@ from time import perf_counter, sleep
 
 import httpx
 
-from monitor.models import CheckResult, MonitorConfig, RunReport, RunSummary
+from monitor.contracts import validate_contract
+from monitor.models import (
+    ALL_STATUS_CATEGORIES,
+    CheckResult,
+    MonitorConfig,
+    RunReport,
+    RunSummary,
+    StatusCategory,
+)
 
 
 def _utc_now_iso() -> str:
@@ -22,9 +30,10 @@ def execute_check(
     client: httpx.Client | None = None,
     sleep_fn: Callable[[float], None] | None = None,
 ) -> CheckResult:
-    """Ejecuta el check de un monitor con backoff exponencial ante errores de red/timeout y 5xx."""
+    """Ejecuta el check de un monitor con backoff exponencial, contrato y clasificación."""
     max_attempts = monitor.retries + 1
     attempts = 0
+    last_response: httpx.Response | None = None
     last_status: int | None = None
     last_latency_ms = 0.0
     last_error: str | None = None
@@ -45,11 +54,13 @@ def execute_check(
                     timeout=monitor.timeout_s,
                 )
                 elapsed_ms = round((perf_counter() - start) * 1000, 2)
+                last_response = response
                 last_status = response.status_code
                 last_latency_ms = elapsed_ms
                 last_error = None
             except httpx.HTTPError as exc:
                 elapsed_ms = round((perf_counter() - start) * 1000, 2)
+                last_response = None
                 last_status = None
                 last_latency_ms = elapsed_ms
                 last_error = f"{type(exc).__name__}: {exc}"
@@ -83,7 +94,8 @@ def execute_check(
     raw_total_ms = round((perf_counter() - check_start) * 1000, 2)
     total_duration_ms = max(raw_total_ms, last_latency_ms)
 
-    if last_status is None:
+    # Prioridad: network_error > server_error > client_error > contract_error > degraded > ok
+    if last_status is None or last_response is None:
         return CheckResult(
             name=monitor.name,
             url=monitor.url,
@@ -91,22 +103,75 @@ def execute_check(
             status_code=None,
             latency_ms=last_latency_ms,
             total_duration_ms=total_duration_ms,
-            ok=False,
+            status_category="network_error",
             error=last_error or "Error de red desconocido",
             attempts=attempts,
         )
 
-    errors: list[str] = []
     if last_status != monitor.expected_status:
-        errors.append(
-            f"Status inesperado: se esperaba {monitor.expected_status}, se recibió {last_status}"
+        category: StatusCategory = "server_error" if 500 <= last_status < 600 else "client_error"
+        return CheckResult(
+            name=monitor.name,
+            url=monitor.url,
+            timestamp=_utc_now_iso(),
+            status_code=last_status,
+            latency_ms=last_latency_ms,
+            total_duration_ms=total_duration_ms,
+            status_category=category,
+            error=(
+                f"Status inesperado: se esperaba {monitor.expected_status}, "
+                f"se recibió {last_status}"
+            ),
+            attempts=attempts,
         )
+
+    # El status coincide con el esperado: validamos contrato si está configurado
+    contract_issue: str | None = None
+    if monitor.contract is not None:
+        try:
+            payload = last_response.json()
+        except ValueError:
+            contract_issue = (
+                f"Contrato '{monitor.contract}' inválido: la respuesta no es JSON válido"
+            )
+        else:
+            contract_issue = validate_contract(monitor.contract, payload)
+
+    latency_issue: str | None = None
     if last_latency_ms > monitor.max_latency_ms:
-        errors.append(
+        latency_issue = (
             f"Latencia excedida: {last_latency_ms:.2f}ms > máximo {monitor.max_latency_ms:.2f}ms"
         )
 
-    ok = len(errors) == 0
+    if contract_issue is not None:
+        errors = [contract_issue]
+        if latency_issue is not None:
+            errors.append(latency_issue)
+        return CheckResult(
+            name=monitor.name,
+            url=monitor.url,
+            timestamp=_utc_now_iso(),
+            status_code=last_status,
+            latency_ms=last_latency_ms,
+            total_duration_ms=total_duration_ms,
+            status_category="contract_error",
+            error="; ".join(errors),
+            attempts=attempts,
+        )
+
+    if latency_issue is not None:
+        return CheckResult(
+            name=monitor.name,
+            url=monitor.url,
+            timestamp=_utc_now_iso(),
+            status_code=last_status,
+            latency_ms=last_latency_ms,
+            total_duration_ms=total_duration_ms,
+            status_category="degraded",
+            error=latency_issue,
+            attempts=attempts,
+        )
+
     return CheckResult(
         name=monitor.name,
         url=monitor.url,
@@ -114,8 +179,8 @@ def execute_check(
         status_code=last_status,
         latency_ms=last_latency_ms,
         total_duration_ms=total_duration_ms,
-        ok=ok,
-        error="; ".join(errors) if errors else None,
+        status_category="ok",
+        error=None,
         attempts=attempts,
     )
 
@@ -128,11 +193,20 @@ def run_monitors(monitors: list[MonitorConfig]) -> RunReport:
             results.append(execute_check(monitor, client=client))
 
     total = len(results)
-    ok_count = sum(1 for item in results if item.ok)
+    by_category: dict[StatusCategory, int] = {cat: 0 for cat in ALL_STATUS_CATEGORIES}
+    for item in results:
+        by_category[item.status_category] += 1
+
+    ok_count = by_category["ok"]
     failed_count = total - ok_count
 
     return RunReport(
-        summary=RunSummary(total=total, ok=ok_count, failed=failed_count),
+        summary=RunSummary(
+            total=total,
+            ok=ok_count,
+            failed=failed_count,
+            by_category=by_category,
+        ),
         results=results,
     )
 
