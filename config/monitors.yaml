@@ -24,7 +24,7 @@ monitors:
 
   - id: zz-prueba-alertas
     name: "ZZ Prueba alertas"
-    url: "https://dolarapi.com/v1/esto-no-existe"
+    url: "https://dolarapi.com/v1/dolares/oficial"
     method: "GET"
     expected_status: 200
     max_latency_ms: 2500
