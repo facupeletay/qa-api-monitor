@@ -21,3 +21,13 @@ monitors:
     retries: 2
     backoff_base_s: 0.5
     contract: "open_meteo"
+
+  - id: zz-prueba-alertas
+    name: "ZZ Prueba alertas"
+    url: "https://dolarapi.com/v1/esto-no-existe"
+    method: "GET"
+    expected_status: 200
+    max_latency_ms: 2500
+    timeout_s: 5.0
+    retries: 0
+    alert_after: 1
