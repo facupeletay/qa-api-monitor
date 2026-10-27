@@ -96,10 +96,10 @@ def test_invalid_yaml_or_missing_fields_raises_clear_error(tmp_path: Path) -> No
 
 
 def test_production_monitors_yaml_loads_all_configured_apis() -> None:
-    """Verifica que config/monitors.yaml real sea válido y tenga todos los contratos registrados."""
+    """Verifica que config/monitors.yaml real sea válido y tenga todos los monitores registrados."""
     repo_root = Path(__file__).resolve().parent.parent
     monitors = load_config(repo_root / "config" / "monitors.yaml")
-    assert len(monitors) == 8
+    assert len(monitors) == 16
     names = {m.name for m in monitors}
     assert "DolarApi - Dolar Oficial" in names
     assert "DolarApi - Dolar Blue" in names
@@ -109,3 +109,11 @@ def test_production_monitors_yaml_loads_all_configured_apis() -> None:
     assert "GeoRef AR - Provincias" in names
     assert "GitHub Status - Estado Global" in names
     assert "CoinGecko - Bitcoin (BTC/USD)" in names
+    assert "Datos Abiertos - Regimen SGR (SEPYME)" in names
+    assert "MAV - API Instrumentos PyME (v1)" in names
+    assert "BCRA - Estadisticas Monetarias y Tasas (v4)" in names
+    assert "ePyme - Caja de Valores (Portal SGR)" in names
+    assert "MAV Data - Estadisticas Mercado PyME" in names
+    assert "CASFOG - Camara Argentina de SGR" in names
+    assert "Garantizar SGR - Portal" in names
+    assert "Acindar Pymes SGR - Portal" in names

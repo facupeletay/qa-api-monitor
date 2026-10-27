@@ -6,14 +6,21 @@ from pydantic import BaseModel, ValidationError
 
 from monitor.contracts.models import (
     ArgentinaDatosRiesgoPaisContract,
+    BcraMonetariaItem,
+    BcraMonetariasContract,
     CoinGeckoBitcoinUsd,
     CoinGeckoPriceContract,
+    DatosGobPackageItem,
+    DatosGobSearchResult,
+    DatosGobSgrContract,
     DolarApiContract,
     GeorefProvinciaItem,
     GeorefProvinciasContract,
     GitHubStatusContract,
     GitHubStatusInfo,
     GitHubStatusPage,
+    MavApiIndexContract,
+    MavRouteEntry,
     OpenMeteoContract,
     OpenMeteoCurrent,
 )
@@ -25,6 +32,9 @@ CONTRACTS: dict[str, type[BaseModel]] = {
     "georef_provincias": GeorefProvinciasContract,
     "github_status": GitHubStatusContract,
     "coingecko_price": CoinGeckoPriceContract,
+    "datos_gob_sgr": DatosGobSgrContract,
+    "mav_api_index": MavApiIndexContract,
+    "bcra_monetarias": BcraMonetariasContract,
 }
 
 
@@ -59,14 +69,21 @@ def validate_contract(contract_name: str, payload: object) -> str | None:
 __all__ = [
     "CONTRACTS",
     "ArgentinaDatosRiesgoPaisContract",
+    "BcraMonetariaItem",
+    "BcraMonetariasContract",
     "CoinGeckoBitcoinUsd",
     "CoinGeckoPriceContract",
+    "DatosGobPackageItem",
+    "DatosGobSearchResult",
+    "DatosGobSgrContract",
     "DolarApiContract",
     "GeorefProvinciaItem",
     "GeorefProvinciasContract",
     "GitHubStatusContract",
     "GitHubStatusInfo",
     "GitHubStatusPage",
+    "MavApiIndexContract",
+    "MavRouteEntry",
     "OpenMeteoContract",
     "OpenMeteoCurrent",
     "get_contract",

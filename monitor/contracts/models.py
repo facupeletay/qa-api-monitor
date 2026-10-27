@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictFloat, StrictInt, StrictStr
 
 JsonNumber = StrictInt | StrictFloat
 
@@ -110,3 +110,68 @@ class CoinGeckoPriceContract(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     bitcoin: CoinGeckoBitcoinUsd
+
+
+class DatosGobPackageItem(BaseModel):
+    """Dataset individual dentro de la búsqueda CKAN de datos.gob.ar."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    id: StrictStr
+    title: StrictStr
+
+
+class DatosGobSearchResult(BaseModel):
+    """Bloque 'result' de la API CKAN package_search de datos.gob.ar."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    count: StrictInt
+    results: list[DatosGobPackageItem] = Field(min_length=1)
+
+
+class DatosGobSgrContract(BaseModel):
+    """Contrato esperado para el dataset de SGR en https://datos.gob.ar/api/3/action/package_search."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    success: StrictBool
+    result: DatosGobSearchResult
+
+
+class MavRouteEntry(BaseModel):
+    """Entrada de ruta dentro del namespace mav/v1 de Mercado Argentino de Valores."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    namespace: StrictStr
+    methods: list[StrictStr] = Field(min_length=1)
+
+
+class MavApiIndexContract(BaseModel):
+    """Contrato esperado para https://www.mav-sa.com.ar/wp-json/mav/v1."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    namespace: StrictStr
+    routes: dict[StrictStr, MavRouteEntry] = Field(min_length=1)
+
+
+class BcraMonetariaItem(BaseModel):
+    """Variable monetaria informada por la API Estadísticas v4 del BCRA."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    idVariable: StrictInt
+    descripcion: StrictStr
+    ultFechaInformada: StrictStr
+    ultValorInformado: JsonNumber
+
+
+class BcraMonetariasContract(BaseModel):
+    """Contrato esperado para https://api.bcra.gob.ar/estadisticas/v4.0/monetarias."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    status: StrictInt
+    results: list[BcraMonetariaItem] = Field(min_length=1)

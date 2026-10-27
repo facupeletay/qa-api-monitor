@@ -94,6 +94,14 @@ python -m monitor.history --previous https://facupeletay.github.io/qa-api-monito
 | **GeoRef AR - Provincias** | `https://apis.datos.gob.ar/georef/api/provincias?campos=id,nombre&max=5` | `georef_provincias` |
 | **GitHub Status - Estado Global** | `https://www.githubstatus.com/api/v2/status.json` | `github_status` |
 | **CoinGecko - Bitcoin (BTC/USD)** | `https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd` | `coingecko_price` |
+| **Datos Abiertos - Regimen SGR (SEPYME)** | `https://datos.gob.ar/api/3/action/package_search?q=sociedades+garantia+reciproca&rows=3` | `datos_gob_sgr` |
+| **MAV - API Instrumentos PyME (v1)** | `https://www.mav-sa.com.ar/wp-json/mav/v1` | `mav_api_index` |
+| **BCRA - Estadisticas Monetarias y Tasas (v4)** | `https://api.bcra.gob.ar/estadisticas/v4.0/monetarias?limit=5` | `bcra_monetarias` |
+| **ePyme - Caja de Valores (Portal SGR)** | `https://epyme.cajadevalores.com.ar/login` | *(HTTP 200 + SLA)* |
+| **MAV Data - Estadisticas Mercado PyME** | `https://mavdata.mav-sa.com.ar/operaciones/dashboard` | *(HTTP 200 + SLA)* |
+| **CASFOG - Camara Argentina de SGR** | `https://casfog.com.ar/` | *(HTTP 200 + SLA)* |
+| **Garantizar SGR - Portal** | `https://www.garantizar.com.ar/` | *(HTTP 200 + SLA)* |
+| **Acindar Pymes SGR - Portal** | `https://www.acindarpymes.com.ar/` | *(HTTP 200 + SLA)* |
 
 ## Alertas (`monitor/alerts.py`)
 

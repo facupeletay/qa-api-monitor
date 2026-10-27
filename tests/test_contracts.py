@@ -36,6 +36,9 @@ def test_contracts_registry_contains_all_expected_contracts() -> None:
         "georef_provincias",
         "github_status",
         "coingecko_price",
+        "datos_gob_sgr",
+        "mav_api_index",
+        "bcra_monetarias",
     }
     assert expected.issubset(CONTRACTS.keys())
     for name in expected:
@@ -103,6 +106,69 @@ def test_new_contracts_valid_and_invalid_payloads() -> None:
     assert validate_contract("coingecko_price", {"bitcoin": {"usd": 80629.5}}) is None
     err_cg = validate_contract("coingecko_price", {"bitcoin": {"usd": "caro"}})
     assert err_cg is not None and "bitcoin.usd" in err_cg
+
+    # 5. datos_gob_sgr
+    assert (
+        validate_contract(
+            "datos_gob_sgr",
+            {
+                "success": True,
+                "result": {
+                    "count": 1,
+                    "results": [
+                        {
+                            "id": "sgr-dataset-1",
+                            "title": "Sociedades de Garantía Recíproca (SGR)",
+                        }
+                    ],
+                },
+            },
+        )
+        is None
+    )
+    err_sgr = validate_contract(
+        "datos_gob_sgr",
+        {"success": True, "result": {"count": 0, "results": []}},
+    )
+    assert err_sgr is not None and "result.results" in err_sgr
+
+    # 6. mav_api_index
+    assert (
+        validate_contract(
+            "mav_api_index",
+            {
+                "namespace": "mav/v1",
+                "routes": {
+                    "/mav/v1": {"namespace": "mav/v1", "methods": ["GET"]},
+                    "/mav/v1/fetch": {"namespace": "mav/v1", "methods": ["GET"]},
+                },
+            },
+        )
+        is None
+    )
+    err_mav = validate_contract("mav_api_index", {"namespace": "mav/v1", "routes": {}})
+    assert err_mav is not None and "routes" in err_mav
+
+    # 7. bcra_monetarias
+    assert (
+        validate_contract(
+            "bcra_monetarias",
+            {
+                "status": 200,
+                "results": [
+                    {
+                        "idVariable": 1,
+                        "descripcion": "Reservas internacionales",
+                        "ultFechaInformada": "2026-10-22",
+                        "ultValorInformado": 50169.0,
+                    }
+                ],
+            },
+        )
+        is None
+    )
+    err_bcra = validate_contract("bcra_monetarias", {"status": 200, "results": []})
+    assert err_bcra is not None and "results" in err_bcra
 
 
 @respx.mock

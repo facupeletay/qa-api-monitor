@@ -81,3 +81,78 @@ monitors:
     retries: 2
     backoff_base_s: 0.5
     contract: "coingecko_price"
+
+  - name: "Datos Abiertos - Regimen SGR (SEPYME)"
+    url: "https://datos.gob.ar/api/3/action/package_search?q=sociedades+garantia+reciproca&rows=3"
+    method: "GET"
+    expected_status: 200
+    max_latency_ms: 2500
+    timeout_s: 5.0
+    retries: 2
+    backoff_base_s: 0.5
+    contract: "datos_gob_sgr"
+
+  - name: "MAV - API Instrumentos PyME (v1)"
+    url: "https://www.mav-sa.com.ar/wp-json/mav/v1"
+    method: "GET"
+    expected_status: 200
+    max_latency_ms: 3500
+    timeout_s: 8.0
+    retries: 2
+    backoff_base_s: 0.5
+    contract: "mav_api_index"
+
+  - name: "BCRA - Estadisticas Monetarias y Tasas (v4)"
+    url: "https://api.bcra.gob.ar/estadisticas/v4.0/monetarias?limit=5"
+    method: "GET"
+    expected_status: 200
+    max_latency_ms: 2500
+    timeout_s: 5.0
+    retries: 2
+    backoff_base_s: 0.5
+    contract: "bcra_monetarias"
+
+  - name: "ePyme - Caja de Valores (Portal SGR)"
+    url: "https://epyme.cajadevalores.com.ar/login"
+    method: "GET"
+    expected_status: 200
+    max_latency_ms: 2500
+    timeout_s: 5.0
+    retries: 2
+    backoff_base_s: 0.5
+
+  - name: "MAV Data - Estadisticas Mercado PyME"
+    url: "https://mavdata.mav-sa.com.ar/operaciones/dashboard"
+    method: "GET"
+    expected_status: 200
+    max_latency_ms: 3500
+    timeout_s: 8.0
+    retries: 2
+    backoff_base_s: 0.5
+
+  - name: "CASFOG - Camara Argentina de SGR"
+    url: "https://casfog.com.ar/"
+    method: "GET"
+    expected_status: 200
+    max_latency_ms: 3500
+    timeout_s: 8.0
+    retries: 2
+    backoff_base_s: 0.5
+
+  - name: "Garantizar SGR - Portal"
+    url: "https://www.garantizar.com.ar/"
+    method: "GET"
+    expected_status: 200
+    max_latency_ms: 3500
+    timeout_s: 8.0
+    retries: 2
+    backoff_base_s: 0.5
+
+  - name: "Acindar Pymes SGR - Portal"
+    url: "https://www.acindarpymes.com.ar/"
+    method: "GET"
+    expected_status: 200
+    max_latency_ms: 3500
+    timeout_s: 8.0
+    retries: 2
+    backoff_base_s: 0.5
