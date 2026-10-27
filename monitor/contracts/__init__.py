@@ -6,6 +6,10 @@ from pydantic import BaseModel, ValidationError
 
 from monitor.contracts.models import (
     ArgentinaDatosRiesgoPaisContract,
+    BcraDeudorEntidad,
+    BcraDeudoresContract,
+    BcraDeudorPeriodo,
+    BcraDeudorResultado,
     BcraMonetariaItem,
     BcraMonetariasContract,
     CoinGeckoBitcoinUsd,
@@ -35,6 +39,7 @@ CONTRACTS: dict[str, type[BaseModel]] = {
     "datos_gob_sgr": DatosGobSgrContract,
     "mav_api_index": MavApiIndexContract,
     "bcra_monetarias": BcraMonetariasContract,
+    "bcra_deudores": BcraDeudoresContract,
 }
 
 
@@ -69,6 +74,10 @@ def validate_contract(contract_name: str, payload: object) -> str | None:
 __all__ = [
     "CONTRACTS",
     "ArgentinaDatosRiesgoPaisContract",
+    "BcraDeudorEntidad",
+    "BcraDeudoresContract",
+    "BcraDeudorPeriodo",
+    "BcraDeudorResultado",
     "BcraMonetariaItem",
     "BcraMonetariasContract",
     "CoinGeckoBitcoinUsd",

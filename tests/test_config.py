@@ -24,7 +24,8 @@ def test_load_valid_config_with_and_without_contract(tmp_path: Path) -> None:
         "    url: https://example.com/health\n"
         "    max_latency_ms: 500\n"
         "    timeout_s: 2\n"
-        "    retries: 0\n",
+        "    retries: 0\n"
+        "    expected_text: OK\n",
         encoding="utf-8",
     )
 
@@ -33,6 +34,7 @@ def test_load_valid_config_with_and_without_contract(tmp_path: Path) -> None:
     assert len(monitors) == 2
     assert monitors[0].contract == "dolar_api"
     assert monitors[1].contract is None
+    assert monitors[1].expected_text == "OK"
 
 
 def test_unknown_contract_name_raises_config_error(tmp_path: Path) -> None:
@@ -94,16 +96,32 @@ def test_invalid_yaml_or_missing_fields_raises_clear_error(tmp_path: Path) -> No
     with pytest.raises(ConfigError, match="objeto raíz"):
         load_config(list_root_yaml)
 
+    # Caso 6: expected_text vacío
+    empty_expected_yaml = tmp_path / "empty_expected.yaml"
+    empty_expected_yaml.write_text(
+        "monitors:\n"
+        "  - name: Portal Vacio\n"
+        "    url: https://example.com\n"
+        "    max_latency_ms: 500\n"
+        "    timeout_s: 2\n"
+        "    retries: 0\n"
+        "    expected_text: '   '\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ConfigError, match="expected_text"):
+        load_config(empty_expected_yaml)
+
 
 def test_production_monitors_yaml_loads_all_configured_apis() -> None:
     """Verifica que config/monitors.yaml real sea válido y tenga todos los monitores registrados."""
     repo_root = Path(__file__).resolve().parent.parent
     monitors = load_config(repo_root / "config" / "monitors.yaml")
-    assert len(monitors) == 16
+    assert len(monitors) == 18
     names = {m.name for m in monitors}
     assert "DolarApi - Dolar Oficial" in names
     assert "DolarApi - Dolar Blue" in names
     assert "DolarApi - Dolar MEP" in names
+    assert "DolarApi - Dolar Contado con Liqui (CCL)" in names
     assert "Open-Meteo - Clima CABA" in names
     assert "ArgentinaDatos - Riesgo Pais" in names
     assert "GeoRef AR - Provincias" in names
@@ -112,6 +130,7 @@ def test_production_monitors_yaml_loads_all_configured_apis() -> None:
     assert "Datos Abiertos - Regimen SGR (SEPYME)" in names
     assert "MAV - API Instrumentos PyME (v1)" in names
     assert "BCRA - Estadisticas Monetarias y Tasas (v4)" in names
+    assert "BCRA - Central de Deudores (v1)" in names
     assert "ePyme - Caja de Valores (Portal SGR)" in names
     assert "MAV Data - Estadisticas Mercado PyME" in names
     assert "CASFOG - Camara Argentina de SGR" in names

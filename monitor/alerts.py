@@ -1,4 +1,4 @@
-"""Gestión automática de alertas mediante GitHub Issues ante fallas consecutivas (Fase 5)."""
+"""Gestión automática de alertas mediante GitHub Issues y notificaciones externas (Fases 5 y 6)."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, Literal, Protocol
 
 import httpx
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, Field, ValidationError
 
 from monitor.config import ConfigError, load_config
 from monitor.history import HistoryError, HistoryReport, _parse_iso_utc
@@ -87,6 +87,7 @@ class AlertAction(BaseModel):
     summary_line: str
     issue_number: int | None = None
     dry_run: bool = False
+    notified_channels: list[str] = Field(default_factory=list)
 
 
 def issue_title_for_monitor(monitor_name: str) -> str:
@@ -497,6 +498,139 @@ def _build_recovery_comment(*, decision: Action) -> str:
     return "\n".join(lines)
 
 
+def _build_external_notification_message(
+    *,
+    decision: Action,
+    issue_number: int | None,
+    dashboard_url: str,
+    repo: str,
+) -> str:
+    """Construye un mensaje conciso para notificaciones externas (Webhook / Telegram)."""
+    issue_ref = (
+        f"#{issue_number} (https://github.com/{repo}/issues/{issue_number})"
+        if issue_number
+        else "N/A"
+    )
+    if decision.kind == "OPEN":
+        return "\n".join(
+            [
+                f"🚨 [ALERTA ABIERTA] {decision.monitor_name}",
+                f"• Estado: {decision.category} ({decision.streak_count} fallas consecutivas)",
+                f"• Error: {decision.last_error or 'Sin detalle'}",
+                f"• Issue: {issue_ref}",
+                f"• Dashboard: {dashboard_url}",
+            ]
+        )
+    if decision.kind == "COMMENT_CATEGORY_CHANGE":
+        return "\n".join(
+            [
+                f"🔄 [CAMBIO DE CATEGORÍA] {decision.monitor_name}",
+                (
+                    f"• Cambio: {decision.previous_category} -> {decision.category} "
+                    f"({decision.streak_count} fallas consecutivas)"
+                ),
+                f"• Error: {decision.last_error or 'Sin detalle'}",
+                f"• Issue: {issue_ref}",
+                f"• Dashboard: {dashboard_url}",
+            ]
+        )
+    latency_val = decision.last_latency_ms if decision.last_latency_ms is not None else 0.0
+    return "\n".join(
+        [
+            f"✅ [SERVICIO RECUPERADO] {decision.monitor_name}",
+            f"• Duración del incidente: {decision.duration}",
+            f"• Latencia actual: {latency_val:.1f} ms",
+            f"• Issue cerrado: {issue_ref}",
+            f"• Dashboard: {dashboard_url}",
+        ]
+    )
+
+
+def send_webhook_notification(
+    client: httpx.Client,
+    webhook_url: str,
+    *,
+    message: str,
+    decision: Action,
+    issue_number: int | None,
+) -> bool:
+    """Envía una notificación a un Webhook (Discord, Slack o JSON genérico).
+
+    Aísla fallas: si el servidor externo devuelve error o timeout, registra un
+    Warning en stderr y devuelve False para no interrumpir la gestión de Issues.
+    """
+    lower_url = webhook_url.lower()
+    if "discord.com/api/webhooks" in lower_url or "discordapp.com/api/webhooks" in lower_url:
+        payload: dict[str, Any] = {"content": message}
+    elif "hooks.slack.com" in lower_url:
+        payload = {"text": message}
+    else:
+        payload = {
+            "text": message,
+            "content": message,
+            "kind": decision.kind,
+            "monitor_id": decision.monitor_id,
+            "monitor_name": decision.monitor_name,
+            "category": decision.category,
+            "issue_number": issue_number,
+        }
+
+    try:
+        response = client.post(webhook_url, json=payload)
+    except httpx.HTTPError as exc:
+        print(
+            f"Warning: error de red al enviar notificación webhook: {type(exc).__name__}: {exc}",
+            file=sys.stderr,
+        )
+        return False
+
+    if not (200 <= response.status_code < 300):
+        print(
+            f"Warning: respuesta inesperada del webhook: HTTP {response.status_code} "
+            f"- {response.text[:200]}",
+            file=sys.stderr,
+        )
+        return False
+    return True
+
+
+def send_telegram_notification(
+    client: httpx.Client,
+    bot_token: str,
+    chat_id: str,
+    *,
+    message: str,
+) -> bool:
+    """Envía una notificación mediante Telegram Bot API (sendMessage).
+
+    Aísla fallas sin exponer el token del bot en stderr si ocurre un error.
+    """
+    telegram_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": message,
+        "disable_web_page_preview": True,
+    }
+    try:
+        response = client.post(telegram_url, json=payload)
+    except httpx.HTTPError as exc:
+        print(
+            f"Warning: error de red al enviar notificación de Telegram (chat_id={chat_id}): "
+            f"{type(exc).__name__}",
+            file=sys.stderr,
+        )
+        return False
+
+    if not (200 <= response.status_code < 300):
+        print(
+            f"Warning: respuesta inesperada de Telegram API (chat_id={chat_id}): "
+            f"HTTP {response.status_code} - {response.text[:200]}",
+            file=sys.stderr,
+        )
+        return False
+    return True
+
+
 def _github_request(
     client: httpx.Client,
     method: str,
@@ -849,6 +983,9 @@ def process_alerts(
     dashboard_url: str | None = None,
     run_url: str | None = None,
     per_page: int = 100,
+    webhook_url: str | None = None,
+    telegram_bot_token: str | None = None,
+    telegram_chat_id: str | None = None,
 ) -> list[AlertAction]:
     """Evalúa el historial por monitor usando decide_action y el cliente correspondiente."""
     owner_repo = repo.strip()
@@ -866,9 +1003,16 @@ def process_alerts(
     if token:
         headers["Authorization"] = f"Bearer {token}"
 
+    clean_webhook = webhook_url.strip() if webhook_url else None
+    clean_tg_token = telegram_bot_token.strip() if telegram_bot_token else None
+    clean_tg_chat = telegram_chat_id.strip() if telegram_chat_id else None
+
     actions: list[AlertAction] = []
 
-    with httpx.Client(headers=headers, timeout=10.0) as http_client:
+    with (
+        httpx.Client(headers=headers, timeout=10.0) as http_client,
+        httpx.Client(timeout=10.0) as notify_client,
+    ):
         gh_client: AlertsGitHubClientProtocol
         if dry_run:
             gh_client = DryRunGitHubAlertsClient()
@@ -885,7 +1029,42 @@ def process_alerts(
             cfg = _resolve_alert_cfg(monitor)
             open_issue = gh_client.find_open_issue(monitor, history, cfg)
             decision = decide_action(monitor, history, cfg, open_issue)
-            actions.append(gh_client.execute(decision))
+            alert_action = gh_client.execute(decision)
+
+            if decision.kind in {"OPEN", "COMMENT_CATEGORY_CHANGE", "CLOSE_RECOVERED"}:
+                if dry_run:
+                    if clean_webhook:
+                        alert_action.notified_channels.append("webhook")
+                    if clean_tg_token and clean_tg_chat:
+                        alert_action.notified_channels.append("telegram")
+                else:
+                    msg = _build_external_notification_message(
+                        decision=decision,
+                        issue_number=alert_action.issue_number,
+                        dashboard_url=resolved_dashboard_url,
+                        repo=owner_repo,
+                    )
+                    if clean_webhook and send_webhook_notification(
+                        notify_client,
+                        clean_webhook,
+                        message=msg,
+                        decision=decision,
+                        issue_number=alert_action.issue_number,
+                    ):
+                        alert_action.notified_channels.append("webhook")
+                    if (
+                        clean_tg_token
+                        and clean_tg_chat
+                        and send_telegram_notification(
+                            notify_client,
+                            clean_tg_token,
+                            clean_tg_chat,
+                            message=msg,
+                        )
+                    ):
+                        alert_action.notified_channels.append("telegram")
+
+            actions.append(alert_action)
 
     return actions
 
@@ -916,7 +1095,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m monitor.alerts",
         description=(
-            "Abre, comenta o cierra GitHub Issues ante fallas consecutivas en history.json."
+            "Abre, comenta o cierra GitHub Issues y envía notificaciones externas "
+            "ante fallas consecutivas en history.json."
         ),
     )
     parser.add_argument(
@@ -932,12 +1112,27 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Muestra qué acciones tomaría sin llamar a la API de GitHub.",
+        help="Muestra qué acciones tomaría sin llamar a la API de GitHub ni a webhooks.",
     )
     parser.add_argument(
         "--summary-md",
         default=None,
         help="Ruta opcional donde agregar el resumen Markdown de acciones tomadas.",
+    )
+    parser.add_argument(
+        "--webhook-url",
+        default=None,
+        help="URL opcional de Webhook (Discord / Slack / JSON) o env ALERT_WEBHOOK_URL.",
+    )
+    parser.add_argument(
+        "--telegram-bot-token",
+        default=None,
+        help="Token opcional del bot de Telegram o env TELEGRAM_BOT_TOKEN.",
+    )
+    parser.add_argument(
+        "--telegram-chat-id",
+        default=None,
+        help="Chat ID opcional de Telegram o env TELEGRAM_CHAT_ID.",
     )
     return parser
 
@@ -952,6 +1147,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     run_id = os.environ.get("GITHUB_RUN_ID", "").strip()
     run_url = f"{server_url}/{repo}/actions/runs/{run_id}" if run_id else None
 
+    webhook_url = (args.webhook_url or os.environ.get("ALERT_WEBHOOK_URL", "")).strip() or None
+    telegram_bot_token = (
+        args.telegram_bot_token or os.environ.get("TELEGRAM_BOT_TOKEN", "")
+    ).strip() or None
+    telegram_chat_id = (
+        args.telegram_chat_id or os.environ.get("TELEGRAM_CHAT_ID", "")
+    ).strip() or None
+
     effective_dry_run = bool(args.dry_run or not token)
 
     try:
@@ -964,6 +1167,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             token=token,
             dry_run=effective_dry_run,
             run_url=run_url,
+            webhook_url=webhook_url,
+            telegram_bot_token=telegram_bot_token,
+            telegram_chat_id=telegram_chat_id,
         )
     except (ConfigError, HistoryError, AlertError, OSError) as exc:
         print(f"Error en alertas: {exc}", file=sys.stderr)

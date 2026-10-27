@@ -7,8 +7,10 @@ import {
   buildMonitorCards,
   computeWindowStats,
   filterChecksByWindow,
+  filterMonitorCards,
   filterRunsByWindow,
   getOverallStatus,
+  inferMonitorSector,
   listIncidents,
 } from "../lib/history";
 import type { HistoryReport } from "../types";
@@ -124,11 +126,58 @@ describe("history pure functions", () => {
     );
     expect(dolarCard?.maxLatencyMs).toBe(2500);
     expect(dolarCard?.windowStats.uptime_pct).toBe(100);
+    expect(dolarCard?.sector).toBe("finanzas");
+    expect(dolarCard?.url).toContain("dolarapi.com");
 
     const dist30d = buildCategoryDistribution(sampleHistory, "30d");
     const okItem = dist30d.find((d) => d.category === "ok");
     expect(okItem?.count).toBe(15);
     expect(okItem?.percentage).toBe(75);
+  });
+
+  it("clasifica monitores por rubro funcional y los filtra por búsqueda, rubro y estado", () => {
+    expect(
+      inferMonitorSector(
+        "BCRA - Estadisticas Monetarias y Tasas (v4)",
+        "https://api.bcra.gob.ar/estadisticas/v4.0/monetarias",
+      ),
+    ).toBe("finanzas");
+    expect(
+      inferMonitorSector(
+        "CASFOG - Camara Argentina de SGR",
+        "https://casfog.com.ar/",
+      ),
+    ).toBe("sgr_pyme");
+    expect(
+      inferMonitorSector(
+        "GeoRef AR - Provincias",
+        "https://apis.datos.gob.ar/georef/api/provincias",
+      ),
+    ).toBe("datos_publicos");
+    expect(
+      inferMonitorSector(
+        "GitHub Status - Estado Global",
+        "https://www.githubstatus.com/api/v2/status.json",
+      ),
+    ).toBe("infra_cripto");
+
+    const cards7d = buildMonitorCards(sampleHistory, "7d");
+    // Filtrar por texto en URL
+    expect(
+      filterMonitorCards(cards7d, { query: "open-meteo.com" }),
+    ).toHaveLength(1);
+    // Filtrar por sector finanzas
+    expect(
+      filterMonitorCards(cards7d, { sector: "finanzas" }).map((c) => c.name),
+    ).toEqual(["DolarApi - Dolar Oficial"]);
+    // En 24h solo Open-Meteo tuvo un check degraded; DolarApi estuvo 100% ok
+    const cards24h = buildMonitorCards(sampleHistory, "24h");
+    expect(
+      filterMonitorCards(cards24h, { status: "degraded" }).map((c) => c.name),
+    ).toEqual(["Open-Meteo - Clima CABA"]);
+    expect(
+      filterMonitorCards(cards24h, { status: "issues" }).map((c) => c.name),
+    ).toEqual(["Open-Meteo - Clima CABA"]);
   });
 
   it("maneja correctamente un historial vacío sin arrojar errores", () => {

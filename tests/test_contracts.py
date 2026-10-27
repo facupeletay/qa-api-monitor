@@ -1,4 +1,4 @@
-"""Tests para validación de contratos JSON y registro de contratos."""
+"""Tests para validación de contratos JSON, contenido HTML (expected_text) y registro."""
 
 from __future__ import annotations
 
@@ -39,6 +39,7 @@ def test_contracts_registry_contains_all_expected_contracts() -> None:
         "datos_gob_sgr",
         "mav_api_index",
         "bcra_monetarias",
+        "bcra_deudores",
     }
     assert expected.issubset(CONTRACTS.keys())
     for name in expected:
@@ -170,6 +171,38 @@ def test_new_contracts_valid_and_invalid_payloads() -> None:
     err_bcra = validate_contract("bcra_monetarias", {"status": 200, "results": []})
     assert err_bcra is not None and "results" in err_bcra
 
+    # 8. bcra_deudores
+    assert (
+        validate_contract(
+            "bcra_deudores",
+            {
+                "status": 200,
+                "results": {
+                    "identificacion": 30500010912,
+                    "denominacion": "BANCO DE LA NACION ARGENTINA",
+                    "periodos": [
+                        {
+                            "periodo": "202608",
+                            "entidades": [
+                                {
+                                    "entidad": "BANCO DE LA PROVINCIA DE BUENOS AIRES",
+                                    "situacion": 1,
+                                    "monto": 11120.0,
+                                }
+                            ],
+                        }
+                    ],
+                },
+            },
+        )
+        is None
+    )
+    err_deudores = validate_contract(
+        "bcra_deudores",
+        {"status": 200, "results": {"identificacion": 30500010912, "denominacion": "BNA"}},
+    )
+    assert err_deudores is not None and "results.periodos" in err_deudores
+
 
 @respx.mock
 def test_contract_missing_field_returns_contract_error_mentioning_field() -> None:
@@ -286,6 +319,40 @@ def test_monitor_without_contract_only_validates_status_and_latency() -> None:
     assert result.status_category == "ok"
     assert result.ok is True
     assert result.error is None
+
+
+@respx.mock
+def test_expected_text_validation_passes_when_present_and_fails_when_missing() -> None:
+    """Valida expected_text case-insensitive sobre respuestas HTML y falla con contract_error."""
+    monitor = _make_monitor(
+        name="CASFOG - Camara Argentina de SGR",
+        url="https://casfog.com.ar/",
+        contract=None,
+        expected_text="CASFOG",
+    )
+
+    # Caso 1: HTML válido que contiene la palabra clave
+    respx.get(monitor.url).mock(
+        return_value=httpx.Response(
+            200,
+            text="<html><head><title>Portal casfog oficial</title></head></html>",
+        )
+    )
+    ok_res = execute_check(monitor)
+    assert ok_res.status_category == "ok"
+    assert ok_res.error is None
+
+    # Caso 2: HTTP 200 pero página de mantenimiento sin el texto esperado
+    respx.get(monitor.url).mock(
+        return_value=httpx.Response(
+            200,
+            text="<html><body>502 Bad Gateway - Nginx Maintenance</body></html>",
+        )
+    )
+    fail_res = execute_check(monitor)
+    assert fail_res.status_category == "contract_error"
+    assert fail_res.error is not None
+    assert "CASFOG" in fail_res.error
 
 
 @respx.mock

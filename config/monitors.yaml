@@ -32,6 +32,16 @@ monitors:
     backoff_base_s: 0.5
     contract: "dolar_api"
 
+  - name: "DolarApi - Dolar Contado con Liqui (CCL)"
+    url: "https://dolarapi.com/v1/dolares/contadoconliqui"
+    method: "GET"
+    expected_status: 200
+    max_latency_ms: 2500
+    timeout_s: 5.0
+    retries: 2
+    backoff_base_s: 0.5
+    contract: "dolar_api"
+
   - name: "Open-Meteo - Clima CABA"
     url: "https://api.open-meteo.com/v1/forecast?latitude=-34.61&longitude=-58.38&current=temperature_2m"
     method: "GET"
@@ -112,6 +122,16 @@ monitors:
     backoff_base_s: 0.5
     contract: "bcra_monetarias"
 
+  - name: "BCRA - Central de Deudores (v1)"
+    url: "https://api.bcra.gob.ar/centraldedeudores/v1.0/Deudas/30500010912"
+    method: "GET"
+    expected_status: 200
+    max_latency_ms: 2500
+    timeout_s: 5.0
+    retries: 2
+    backoff_base_s: 0.5
+    contract: "bcra_deudores"
+
   - name: "ePyme - Caja de Valores (Portal SGR)"
     url: "https://epyme.cajadevalores.com.ar/login"
     method: "GET"
@@ -120,6 +140,7 @@ monitors:
     timeout_s: 5.0
     retries: 2
     backoff_base_s: 0.5
+    expected_text: "BYMA"
 
   - name: "MAV Data - Estadisticas Mercado PyME"
     url: "https://mavdata.mav-sa.com.ar/operaciones/dashboard"
@@ -129,6 +150,7 @@ monitors:
     timeout_s: 8.0
     retries: 2
     backoff_base_s: 0.5
+    expected_text: "MAV Data"
 
   - name: "CASFOG - Camara Argentina de SGR"
     url: "https://casfog.com.ar/"
@@ -138,6 +160,7 @@ monitors:
     timeout_s: 8.0
     retries: 2
     backoff_base_s: 0.5
+    expected_text: "CASFOG"
 
   - name: "Garantizar SGR - Portal"
     url: "https://www.garantizar.com.ar/"
@@ -147,6 +170,7 @@ monitors:
     timeout_s: 8.0
     retries: 2
     backoff_base_s: 0.5
+    expected_text: "Garantizar SGR"
 
   - name: "Acindar Pymes SGR - Portal"
     url: "https://www.acindarpymes.com.ar/"
@@ -156,3 +180,4 @@ monitors:
     timeout_s: 8.0
     retries: 2
     backoff_base_s: 0.5
+    expected_text: "Acindar Pymes"

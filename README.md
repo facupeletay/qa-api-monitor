@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/facupeletay/qa-api-monitor/actions/workflows/ci.yml/badge.svg)](https://github.com/facupeletay/qa-api-monitor/actions/workflows/ci.yml)
 
-Monitor de APIs en Python que lee endpoints desde un archivo YAML (`config/monitors.yaml`), ejecuta peticiones HTTP con reintentos y backoff exponencial, mide la latencia por intento y la duración total, valida esquemas/contratos JSON con Pydantic v2, clasifica las fallas por categoría y publica un reporte histórico en **GitHub Pages**.
+Monitor de APIs en Python que lee endpoints desde un archivo YAML (`config/monitors.yaml`), ejecuta peticiones HTTP con reintentos y backoff exponencial, mide la latencia por intento y la duración total, valida esquemas/contratos JSON con Pydantic v2 y palabras clave de integridad en portales HTML (`expected_text`), clasifica las fallas por categoría y publica un reporte histórico interactivo en **GitHub Pages**.
 
 🌐 **Sitio publicado (Estado e Historial):** [https://facupeletay.github.io/qa-api-monitor/](https://facupeletay.github.io/qa-api-monitor/)
 
@@ -23,12 +23,13 @@ flowchart LR
     G --> E["GitHub Pages (Dashboard React + history.json)"]
     D --> H["python -m monitor.alerts"]
     H --> I["GitHub Issues (label: monitor-alert)"]
+    H --> J["Webhook Discord/Slack & Telegram (opcional)"]
 ```
 
-1. **`python -m monitor`** consulta cada API configurada en `config/monitors.yaml`, valida status HTTP, contrato JSON y SLA de latencia, genera `results/run.json` y opcionalmente escribe una tabla resumen en Markdown (`--summary-md`).
+1. **`python -m monitor`** consulta cada API configurada en `config/monitors.yaml`, valida status HTTP, contrato JSON (`contract`), contenido HTML esperado (`expected_text`) y SLA de latencia, genera `results/run.json` y opcionalmente escribe una tabla resumen en Markdown (`--summary-md`).
 2. **`python -m monitor.history`** descarga el `history.json` publicado actualmente en GitHub Pages con cache-busting y `Cache-Control: no-cache` (o arranca vacío si devuelve `404` en la primera corrida; si hay error `5xx`, timeout o JSON corrupto, aborta para proteger el historial), agrega la corrida nueva, descarta registros de más de 30 días y calcula métricas de las últimas **24 horas** y **7 días** (uptime %, p50, p95, SLA `max_latency_ms` y conteo por categoría).
-3. **`dashboard/` (React + Vite + TypeScript + Tailwind + Recharts)** compila el sitio estático con `base: "/qa-api-monitor/"`, copia el `history.json` actualizado dentro de `dashboard/dist/history.json` y **GitHub Pages** publica ese directorio.
-4. **`python -m monitor.alerts`** evalúa las corridas consecutivas del `history.json` actualizado y gestiona automáticamente incidentes en **GitHub Issues** (abre, comenta cambios de categoría o cierra al recuperarse).
+3. **`dashboard/` (React + Vite + TypeScript + Tailwind + Recharts)** compila el sitio estático con `base: "/qa-api-monitor/"` (incluyendo búsqueda en tiempo real por nombre o URL, agrupación por rubro funcional y filtro rápido por estado), copia el `history.json` actualizado dentro de `dashboard/dist/history.json` y **GitHub Pages** publica ese directorio.
+4. **`python -m monitor.alerts`** evalúa las corridas consecutivas del `history.json` actualizado, gestiona automáticamente incidentes en **GitHub Issues** (abre, comenta cambios de categoría o cierra al recuperarse) y envía notificaciones opcionales en tiempo real a **Webhook (Discord / Slack / JSON)** y **Telegram**.
 
 ![Vista previa del Dashboard](./docs/dashboard-preview.png)
 
@@ -84,33 +85,38 @@ python -m monitor.history --previous https://facupeletay.github.io/qa-api-monito
 
 ## APIs monitoreadas y contratos (`monitor/contracts/`)
 
-| Monitor | Endpoint | Contrato Pydantic |
-| :--- | :--- | :--- |
-| **DolarApi - Dolar Oficial** | `https://dolarapi.com/v1/dolares/oficial` | `dolar_api` |
-| **DolarApi - Dolar Blue** | `https://dolarapi.com/v1/dolares/blue` | `dolar_api` |
-| **DolarApi - Dolar MEP** | `https://dolarapi.com/v1/dolares/bolsa` | `dolar_api` |
-| **Open-Meteo - Clima CABA** | `https://api.open-meteo.com/v1/forecast?...` | `open_meteo` |
-| **ArgentinaDatos - Riesgo Pais** | `https://api.argentinadatos.com/v1/finanzas/indices/riesgo-pais/ultimo` | `argentina_datos_riesgo_pais` |
-| **GeoRef AR - Provincias** | `https://apis.datos.gob.ar/georef/api/provincias?campos=id,nombre&max=5` | `georef_provincias` |
-| **GitHub Status - Estado Global** | `https://www.githubstatus.com/api/v2/status.json` | `github_status` |
-| **CoinGecko - Bitcoin (BTC/USD)** | `https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd` | `coingecko_price` |
-| **Datos Abiertos - Regimen SGR (SEPYME)** | `https://datos.gob.ar/api/3/action/package_search?q=sociedades+garantia+reciproca&rows=3` | `datos_gob_sgr` |
-| **MAV - API Instrumentos PyME (v1)** | `https://www.mav-sa.com.ar/wp-json/mav/v1` | `mav_api_index` |
-| **BCRA - Estadisticas Monetarias y Tasas (v4)** | `https://api.bcra.gob.ar/estadisticas/v4.0/monetarias?limit=5` | `bcra_monetarias` |
-| **ePyme - Caja de Valores (Portal SGR)** | `https://epyme.cajadevalores.com.ar/login` | *(HTTP 200 + SLA)* |
-| **MAV Data - Estadisticas Mercado PyME** | `https://mavdata.mav-sa.com.ar/operaciones/dashboard` | *(HTTP 200 + SLA)* |
-| **CASFOG - Camara Argentina de SGR** | `https://casfog.com.ar/` | *(HTTP 200 + SLA)* |
-| **Garantizar SGR - Portal** | `https://www.garantizar.com.ar/` | *(HTTP 200 + SLA)* |
-| **Acindar Pymes SGR - Portal** | `https://www.acindarpymes.com.ar/` | *(HTTP 200 + SLA)* |
+| Monitor | Rubro | Endpoint | Validación (`contract` / `expected_text`) |
+| :--- | :--- | :--- | :--- |
+| **DolarApi - Dolar Oficial** | Finanzas & BCRA | `https://dolarapi.com/v1/dolares/oficial` | Contrato `dolar_api` |
+| **DolarApi - Dolar Blue** | Finanzas & BCRA | `https://dolarapi.com/v1/dolares/blue` | Contrato `dolar_api` |
+| **DolarApi - Dolar MEP** | Finanzas & BCRA | `https://dolarapi.com/v1/dolares/bolsa` | Contrato `dolar_api` |
+| **DolarApi - Dolar Contado con Liqui (CCL)** | Finanzas & BCRA | `https://dolarapi.com/v1/dolares/contadoconliqui` | Contrato `dolar_api` |
+| **ArgentinaDatos - Riesgo Pais** | Finanzas & BCRA | `https://api.argentinadatos.com/v1/finanzas/indices/riesgo-pais/ultimo` | Contrato `argentina_datos_riesgo_pais` |
+| **BCRA - Estadisticas Monetarias y Tasas (v4)** | Finanzas & BCRA | `https://api.bcra.gob.ar/estadisticas/v4.0/monetarias?limit=5` | Contrato `bcra_monetarias` |
+| **BCRA - Central de Deudores (v1)** | Finanzas & BCRA | `https://api.bcra.gob.ar/centraldedeudores/v1.0/Deudas/30500010912` | Contrato `bcra_deudores` |
+| **Datos Abiertos - Regimen SGR (SEPYME)** | Ecosistema SGR / PyME / MAV | `https://datos.gob.ar/api/3/action/package_search?q=sociedades+garantia+reciproca&rows=3` | Contrato `datos_gob_sgr` |
+| **MAV - API Instrumentos PyME (v1)** | Ecosistema SGR / PyME / MAV | `https://www.mav-sa.com.ar/wp-json/mav/v1` | Contrato `mav_api_index` |
+| **ePyme - Caja de Valores (Portal SGR)** | Ecosistema SGR / PyME / MAV | `https://epyme.cajadevalores.com.ar/login` | HTML `expected_text: "BYMA"` |
+| **MAV Data - Estadisticas Mercado PyME** | Ecosistema SGR / PyME / MAV | `https://mavdata.mav-sa.com.ar/operaciones/dashboard` | HTML `expected_text: "MAV Data"` |
+| **CASFOG - Camara Argentina de SGR** | Ecosistema SGR / PyME / MAV | `https://casfog.com.ar/` | HTML `expected_text: "CASFOG"` |
+| **Garantizar SGR - Portal** | Ecosistema SGR / PyME / MAV | `https://www.garantizar.com.ar/` | HTML `expected_text: "Garantizar SGR"` |
+| **Acindar Pymes SGR - Portal** | Ecosistema SGR / PyME / MAV | `https://www.acindarpymes.com.ar/` | HTML `expected_text: "Acindar Pymes"` |
+| **Open-Meteo - Clima CABA** | Datos Públicos & Clima | `https://api.open-meteo.com/v1/forecast?...` | Contrato `open_meteo` |
+| **GeoRef AR - Provincias** | Datos Públicos & Clima | `https://apis.datos.gob.ar/georef/api/provincias?campos=id,nombre&max=5` | Contrato `georef_provincias` |
+| **GitHub Status - Estado Global** | Infraestructura & Cripto | `https://www.githubstatus.com/api/v2/status.json` | Contrato `github_status` |
+| **CoinGecko - Bitcoin (BTC/USD)** | Infraestructura & Cripto | `https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd` | Contrato `coingecko_price` |
 
-## Alertas (`monitor/alerts.py`)
+## Alertas y Notificaciones Externas (`monitor/alerts.py`)
 
-El módulo `monitor.alerts` analiza las fallas consecutivas de cada monitor a partir del `history.json` ya mergeado (sin estado externo adicional) mediante la función pura `decide_action(monitor, history, alert_cfg, open_issue)` y sincroniza incidentes con **GitHub Issues** vía la API REST de GitHub (`httpx`):
+El módulo `monitor.alerts` analiza las fallas consecutivas de cada monitor a partir del `history.json` ya mergeado (sin estado externo adicional) mediante la función pura `decide_action(monitor, history, alert_cfg, open_issue)` y sincroniza incidentes con **GitHub Issues** vía la API REST de GitHub (`httpx`), además de enviar notificaciones externas opcionales:
 
 - **Apertura automática (`OPEN`):** Cuando un monitor acumula `alert_after` corridas consecutivas fallidas y no tiene un Issue abierto, asegura que exista el label `monitor-alert` y abre un Issue con título `[ALERTA] <nombre del monitor>`, incluyendo el marcador oculto `<!-- monitor-id: <id estable> -->` (usando `id` del YAML o el slug del nombre), categoría, inicio de la falla, corridas fallidas, último status HTTP/error y enlaces al dashboard y al run de Actions.
 - **Búsqueda paginada por marcador (`monitor-id`):** Los Issues abiertos se listan paginando `GET /repos/{owner}/{repo}/issues?state=open&labels=monitor-alert` y se identifican por el marcador oculto `<!-- monitor-id: ... -->` (nunca por título). Si hubiera más de un Issue abierto para el mismo monitor, se usa el más antiguo y se emite un warning sin abrir otro.
 - **Sin duplicados ni spam (`COMMENT_CATEGORY_CHANGE` / `NOOP`):** Si ya existe un Issue abierto para ese monitor, no crea otro. Solo agrega un comentario si cambió la categoría de la falla (por ejemplo, de `server_error` a `network_error`).
 - **Cierre por recuperación (`CLOSE_RECOVERED`):** Cuando la última corrida del monitor vuelve a `ok` y existe un Issue abierto, comenta la duración total del incidente y cierra el Issue.
+- **Notificaciones externas opcionales (Webhook / Telegram):** Ante eventos `OPEN`, `COMMENT_CATEGORY_CHANGE` o `CLOSE_RECOVERED` (nunca en `NOOP`), envía notificaciones enriquecidas con aislamiento de fallas:
+  - `ALERT_WEBHOOK_URL` (o `--webhook-url`): detecta automáticamente Webhooks de **Discord** (`{"content": ...}`), **Slack** (`{"text": ...}`) o endpoints JSON genéricos.
+  - `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` (o `--telegram-bot-token` / `--telegram-chat-id`): envía mensajes vía Telegram Bot API (`sendMessage`).
 - **Modo `--dry-run`:** Comparte exactamente la misma función `decide_action`, infiriendo `open_issue` desde las corridas previas del historial y usando un cliente que nunca realiza llamadas HTTP.
 
 ### Configuración en `config/monitors.yaml`

@@ -1,10 +1,17 @@
-import type { StatusCategory } from "../types";
+import type { MonitorSector, StatusCategory } from "../types";
 
 export interface CategoryMeta {
   label: string;
   badgeClass: string;
   dotColor: string;
   barColor: string;
+}
+
+export interface SectorMeta {
+  label: string;
+  shortLabel: string;
+  description: string;
+  badgeClass: string;
 }
 
 export const CATEGORY_META: Record<StatusCategory, CategoryMeta> = {
@@ -49,6 +56,38 @@ export const CATEGORY_META: Record<StatusCategory, CategoryMeta> = {
       "bg-red-500/15 text-red-400 border-red-500/30 light:text-red-700",
     dotColor: "#ef4444",
     barColor: "#ef4444",
+  },
+};
+
+export const SECTOR_META: Record<MonitorSector, SectorMeta> = {
+  finanzas: {
+    label: "Finanzas & BCRA",
+    shortLabel: "Finanzas & BCRA",
+    description: "Cotizaciones cambiarias, Riesgo País y variables monetarias",
+    badgeClass:
+      "bg-sky-500/10 text-sky-400 border-sky-500/25 light:text-sky-700",
+  },
+  sgr_pyme: {
+    label: "Ecosistema SGR / PyME / MAV",
+    shortLabel: "SGR / PyME / MAV",
+    description:
+      "Garantías recíprocas, ePyme Caja de Valores, CASFOG y Mercado Argentino de Valores",
+    badgeClass:
+      "bg-indigo-500/10 text-indigo-400 border-indigo-500/25 light:text-indigo-700",
+  },
+  datos_publicos: {
+    label: "Datos Públicos & Clima",
+    shortLabel: "Datos & Clima",
+    description: "APIs geográficas nacionales y pronóstico meteorológico",
+    badgeClass:
+      "bg-teal-500/10 text-teal-400 border-teal-500/25 light:text-teal-700",
+  },
+  infra_cripto: {
+    label: "Infraestructura & Cripto",
+    shortLabel: "Infra & Cripto",
+    description: "Estado de plataformas globales y cotizaciones cripto",
+    badgeClass:
+      "bg-fuchsia-500/10 text-fuchsia-400 border-fuchsia-500/25 light:text-fuchsia-700",
   },
 };
 

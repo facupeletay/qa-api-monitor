@@ -175,3 +175,41 @@ class BcraMonetariasContract(BaseModel):
 
     status: StrictInt
     results: list[BcraMonetariaItem] = Field(min_length=1)
+
+
+class BcraDeudorEntidad(BaseModel):
+    """Entidad informante dentro de un período en la Central de Deudores del BCRA."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    entidad: StrictStr
+    situacion: StrictInt
+    monto: JsonNumber
+
+
+class BcraDeudorPeriodo(BaseModel):
+    """Período informado para un CUIT en la Central de Deudores del BCRA."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    periodo: StrictStr
+    entidades: list[BcraDeudorEntidad] = Field(min_length=1)
+
+
+class BcraDeudorResultado(BaseModel):
+    """Objeto 'results' devuelto por la API Central de Deudores v1.0 del BCRA."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    identificacion: StrictInt
+    denominacion: StrictStr
+    periodos: list[BcraDeudorPeriodo] = Field(min_length=1)
+
+
+class BcraDeudoresContract(BaseModel):
+    """Contrato esperado para https://api.bcra.gob.ar/centraldedeudores/v1.0/Deudas/{cuit}."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    status: StrictInt
+    results: BcraDeudorResultado

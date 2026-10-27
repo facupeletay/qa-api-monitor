@@ -1051,3 +1051,173 @@ def test_workflow_monitor_yml_cli_flags_match_real_parsers() -> None:
                 parser.parse_args(cli_args)
 
     assert found_modules == {"monitor", "monitor.history", "monitor.alerts"}
+
+
+@respx.mock
+def test_external_notifications_sent_on_open_and_close_for_discord_and_telegram() -> None:
+    """Envía notificaciones a Discord Webhook y Telegram al abrir y cerrar un Issue."""
+    monitor = _default_monitor(alert_after=3)
+    history_open = _make_history(
+        [
+            [_make_check(timestamp="2026-10-17T06:00:00Z", status_category="server_error")],
+            [_make_check(timestamp="2026-10-17T12:00:00Z", status_category="server_error")],
+            [_make_check(timestamp="2026-10-17T18:00:00Z", status_category="server_error")],
+        ]
+    )
+
+    respx.get(f"{API_BASE}/issues").mock(return_value=httpx.Response(200, json=[]))
+    respx.get(f"{API_BASE}/labels/{ALERT_LABEL}").mock(
+        return_value=httpx.Response(200, json={"name": ALERT_LABEL})
+    )
+    respx.post(f"{API_BASE}/issues").mock(return_value=httpx.Response(201, json={"number": 42}))
+
+    discord_url = "https://discord.com/api/webhooks/123456/abcdef"
+    telegram_url = "https://api.telegram.org/bot123:TOKEN_TEST/sendMessage"
+
+    discord_route = respx.post(discord_url).mock(return_value=httpx.Response(204))
+    telegram_route = respx.post(telegram_url).mock(
+        return_value=httpx.Response(200, json={"ok": True})
+    )
+
+    actions = process_alerts(
+        history=history_open,
+        monitors=[monitor],
+        repo=REPO,
+        token="ghs_test_token",
+        dry_run=False,
+        webhook_url=discord_url,
+        telegram_bot_token="123:TOKEN_TEST",
+        telegram_chat_id="-100999888",
+    )
+
+    assert len(actions) == 1
+    assert actions[0].kind == "OPEN"
+    assert actions[0].notified_channels == ["webhook", "telegram"]
+    assert discord_route.call_count == 1
+    assert telegram_route.call_count == 1
+
+    # Verificar que no se filtra el GITHUB_TOKEN a servicios externos
+    assert "authorization" not in discord_route.calls.last.request.headers
+    assert "authorization" not in telegram_route.calls.last.request.headers
+
+    discord_payload = json.loads(discord_route.calls.last.request.content.decode("utf-8"))
+    assert "ALERTA ABIERTA" in discord_payload["content"]
+    assert "#42" in discord_payload["content"]
+
+    tg_payload = json.loads(telegram_route.calls.last.request.content.decode("utf-8"))
+    assert tg_payload["chat_id"] == "-100999888"
+    assert "ALERTA ABIERTA" in tg_payload["text"]
+
+
+@respx.mock
+def test_external_notifications_slack_and_generic_webhook_and_not_sent_on_noop() -> None:
+    """Soporta formato Slack/JSON genérico en cambios y no envía notificaciones en NOOP."""
+    monitor = _default_monitor(alert_after=3)
+    history_noop = _make_history(
+        [
+            [_make_check(timestamp="2026-10-17T06:00:00Z", status_category="ok")],
+        ]
+    )
+    respx.get(f"{API_BASE}/issues").mock(return_value=httpx.Response(200, json=[]))
+
+    slack_url = "https://hooks.slack.com/services/T000/B000/X000"
+    slack_route = respx.post(slack_url).mock(return_value=httpx.Response(200, text="ok"))
+
+    actions_noop = process_alerts(
+        history=history_noop,
+        monitors=[monitor],
+        repo=REPO,
+        token="ghs_test_token",
+        dry_run=False,
+        webhook_url=slack_url,
+    )
+    assert actions_noop[0].kind == "NOOP"
+    assert actions_noop[0].notified_channels == []
+    assert not slack_route.called
+
+    # Ahora probar con cambio de categoría y webhook Slack
+    history_change = _make_history(
+        [
+            [_make_check(timestamp="2026-10-17T00:00:00Z", status_category="server_error")],
+            [_make_check(timestamp="2026-10-17T06:00:00Z", status_category="server_error")],
+            [_make_check(timestamp="2026-10-17T12:00:00Z", status_category="server_error")],
+            [_make_check(timestamp="2026-10-17T18:00:00Z", status_category="network_error")],
+        ]
+    )
+    respx.get(f"{API_BASE}/issues").mock(
+        return_value=httpx.Response(
+            200,
+            json=[
+                {
+                    "number": 15,
+                    "title": issue_title_for_monitor(MONITOR_NAME),
+                    "body": _issue_body_with_markers(
+                        monitor_id=MONITOR_SLUG, category="server_error"
+                    ),
+                    "created_at": "2026-10-17T12:00:00Z",
+                }
+            ],
+        )
+    )
+    respx.post(f"{API_BASE}/issues/15/comments").mock(
+        return_value=httpx.Response(201, json={"id": 101})
+    )
+
+    actions_change = process_alerts(
+        history=history_change,
+        monitors=[monitor],
+        repo=REPO,
+        token="ghs_test_token",
+        dry_run=False,
+        webhook_url=slack_url,
+    )
+    assert actions_change[0].kind == "COMMENT_CATEGORY_CHANGE"
+    assert actions_change[0].notified_channels == ["webhook"]
+    assert slack_route.call_count == 1
+    slack_payload = json.loads(slack_route.calls.last.request.content.decode("utf-8"))
+    assert "CAMBIO DE CATEGORÍA" in slack_payload["text"]
+
+
+@respx.mock
+def test_external_notification_failure_is_isolated_and_does_not_fail_github_issue_action(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Si el webhook externo o Telegram falla (500), emite Warning pero no aborta el Issue."""
+    monitor = _default_monitor(alert_after=3)
+    history_open = _make_history(
+        [
+            [_make_check(timestamp="2026-10-17T06:00:00Z", status_category="server_error")],
+            [_make_check(timestamp="2026-10-17T12:00:00Z", status_category="server_error")],
+            [_make_check(timestamp="2026-10-17T18:00:00Z", status_category="server_error")],
+        ]
+    )
+    respx.get(f"{API_BASE}/issues").mock(return_value=httpx.Response(200, json=[]))
+    respx.get(f"{API_BASE}/labels/{ALERT_LABEL}").mock(
+        return_value=httpx.Response(200, json={"name": ALERT_LABEL})
+    )
+    respx.post(f"{API_BASE}/issues").mock(return_value=httpx.Response(201, json={"number": 99}))
+
+    custom_webhook = "https://example.org/alerts-hook"
+    telegram_url = "https://api.telegram.org/botSECRET_TOKEN_999/sendMessage"
+    respx.post(custom_webhook).mock(return_value=httpx.Response(500, text="Hook Down"))
+    respx.post(telegram_url).mock(return_value=httpx.Response(502, text="Bad Gateway"))
+
+    actions = process_alerts(
+        history=history_open,
+        monitors=[monitor],
+        repo=REPO,
+        token="ghs_test_token",
+        dry_run=False,
+        webhook_url=custom_webhook,
+        telegram_bot_token="SECRET_TOKEN_999",
+        telegram_chat_id="12345",
+    )
+    captured = capsys.readouterr()
+
+    assert actions[0].kind == "OPEN"
+    assert actions[0].issue_number == 99
+    assert actions[0].notified_channels == []
+    assert "Warning: respuesta inesperada del webhook: HTTP 500" in captured.err
+    assert "Warning: respuesta inesperada de Telegram API" in captured.err
+    # Asegurar que el token secreto nunca se filtre en stderr
+    assert "SECRET_TOKEN_999" not in captured.err

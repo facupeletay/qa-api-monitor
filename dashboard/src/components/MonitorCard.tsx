@@ -1,6 +1,6 @@
 import { formatShortTimestamp } from "../lib/history";
 import type { MonitorCardView, TimeWindow } from "../types";
-import { CATEGORY_META, formatNumber } from "./categoryMeta";
+import { CATEGORY_META, SECTOR_META, formatNumber } from "./categoryMeta";
 
 export interface MonitorCardProps {
   card: MonitorCardView;
@@ -9,15 +9,31 @@ export interface MonitorCardProps {
 
 export function MonitorCard({ card, windowRange }: MonitorCardProps) {
   const meta = CATEGORY_META[card.lastStatusCategory];
+  const sectorMeta = SECTOR_META[card.sector];
 
   return (
     <article className="min-w-0 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-secondary)] p-5 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="text-base font-semibold text-[var(--text-primary)]">
-            {card.name}
-          </h3>
-          <p className="mt-0.5 text-xs text-[var(--text-muted)]">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-base font-semibold text-[var(--text-primary)]">
+              {card.name}
+            </h3>
+            <span
+              className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium whitespace-nowrap ${sectorMeta.badgeClass}`}
+            >
+              {sectorMeta.shortLabel}
+            </span>
+          </div>
+          {card.url && (
+            <p
+              className="mt-1 truncate font-mono text-xs text-[var(--text-muted)]"
+              title={card.url}
+            >
+              {card.url}
+            </p>
+          )}
+          <p className="mt-1 text-xs text-[var(--text-muted)]">
             Último check:{" "}
             <span className="whitespace-nowrap">
               {formatShortTimestamp(card.lastTimestamp)} UTC

@@ -15,6 +15,22 @@ export const ALL_STATUS_CATEGORIES: readonly StatusCategory[] = [
   "network_error",
 ] as const;
 
+export type MonitorSector =
+  | "finanzas"
+  | "sgr_pyme"
+  | "datos_publicos"
+  | "infra_cripto";
+
+export const ALL_MONITOR_SECTORS: readonly MonitorSector[] = [
+  "finanzas",
+  "sgr_pyme",
+  "datos_publicos",
+  "infra_cripto",
+] as const;
+
+export type SectorFilter = "all" | MonitorSector;
+export type StatusFilter = "all" | "ok" | "issues" | "degraded";
+
 export interface CheckResult {
   name: string;
   url: string;
@@ -59,6 +75,8 @@ export type TimeWindow = "24h" | "7d" | "30d";
 
 export interface MonitorCardView {
   name: string;
+  url: string;
+  sector: MonitorSector;
   lastStatusCategory: StatusCategory;
   lastTimestamp: string;
   maxLatencyMs: number | null;

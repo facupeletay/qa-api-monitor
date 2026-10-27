@@ -8,7 +8,10 @@ import {
   type IncidentItem,
   type LatencySeriesPoint,
   type MonitorCardView,
+  type MonitorSector,
+  type SectorFilter,
   type StatusCategory,
+  type StatusFilter,
   type TimeWindow,
   type WindowStats,
 } from "../types";
@@ -82,6 +85,50 @@ export function computeWindowStats(checks: readonly CheckResult[]): WindowStats 
     latency_p95_ms: percentile(latencies, 0.95),
     by_category,
   };
+}
+
+/**
+ * Clasifica un monitor dentro de uno de los 4 rubros funcionales del dashboard
+ * a partir de su nombre y URL.
+ */
+export function inferMonitorSector(name: string, url = ""): MonitorSector {
+  const haystack = `${name} ${url}`.toLowerCase();
+
+  if (
+    haystack.includes("sgr") ||
+    haystack.includes("pyme") ||
+    haystack.includes("epyme") ||
+    haystack.includes("casfog") ||
+    haystack.includes("mav") ||
+    haystack.includes("garantizar") ||
+    haystack.includes("acindar") ||
+    haystack.includes("cajadevalores")
+  ) {
+    return "sgr_pyme";
+  }
+
+  if (
+    haystack.includes("dolar") ||
+    haystack.includes("bcra") ||
+    haystack.includes("riesgo") ||
+    haystack.includes("argentinadatos") ||
+    haystack.includes("finanzas") ||
+    haystack.includes("monetaria")
+  ) {
+    return "finanzas";
+  }
+
+  if (
+    haystack.includes("meteo") ||
+    haystack.includes("clima") ||
+    haystack.includes("georef") ||
+    haystack.includes("provincia") ||
+    haystack.includes("datos.gob.ar")
+  ) {
+    return "datos_publicos";
+  }
+
+  return "infra_cripto";
 }
 
 /**
@@ -192,13 +239,26 @@ export function buildMonitorCards(
   const monitorNames = getMonitorNames(report);
   const filteredChecks = filterChecksByWindow(report, window);
 
+  const latestUrlByMonitor = new Map<string, string>();
+  for (const run of report.runs) {
+    for (const check of run.results) {
+      if (check.url) {
+        latestUrlByMonitor.set(check.name, check.url);
+      }
+    }
+  }
+
   return monitorNames.map((name) => {
     const monitorChecks = filteredChecks.filter((c) => c.name === name);
     const stat = report.stats[name];
     const computedStats = computeWindowStats(monitorChecks);
+    const url =
+      monitorChecks.at(-1)?.url ?? latestUrlByMonitor.get(name) ?? "";
 
     return {
       name,
+      url,
+      sector: inferMonitorSector(name, url),
       lastStatusCategory:
         stat?.last_status_category ??
         monitorChecks.at(-1)?.status_category ??
@@ -210,6 +270,64 @@ export function buildMonitorCards(
       maxLatencyMs: stat?.max_latency_ms ?? null,
       windowStats: computedStats,
     };
+  });
+}
+
+export interface MonitorFilterCriteria {
+  query?: string;
+  sector?: SectorFilter;
+  status?: StatusFilter;
+}
+
+export function cardHasIssues(card: MonitorCardView): boolean {
+  const nonOkInWindow =
+    card.windowStats.total_checks - card.windowStats.by_category.ok;
+  return card.lastStatusCategory !== "ok" || nonOkInWindow > 0;
+}
+
+export function cardIsDegraded(card: MonitorCardView): boolean {
+  return (
+    card.lastStatusCategory === "degraded" ||
+    card.windowStats.by_category.degraded > 0
+  );
+}
+
+/**
+ * Filtra las tarjetas de monitores según texto de búsqueda (nombre o URL),
+ * rubro funcional (`sector`) y estado (`status`).
+ */
+export function filterMonitorCards(
+  cards: readonly MonitorCardView[],
+  criteria: MonitorFilterCriteria,
+): MonitorCardView[] {
+  const normalizedQuery = (criteria.query ?? "").trim().toLowerCase();
+  const sector = criteria.sector ?? "all";
+  const status = criteria.status ?? "all";
+
+  return cards.filter((card) => {
+    if (sector !== "all" && card.sector !== sector) {
+      return false;
+    }
+
+    if (status === "ok" && card.lastStatusCategory !== "ok") {
+      return false;
+    }
+    if (status === "issues" && !cardHasIssues(card)) {
+      return false;
+    }
+    if (status === "degraded" && !cardIsDegraded(card)) {
+      return false;
+    }
+
+    if (normalizedQuery.length > 0) {
+      const matchesName = card.name.toLowerCase().includes(normalizedQuery);
+      const matchesUrl = card.url.toLowerCase().includes(normalizedQuery);
+      if (!matchesName && !matchesUrl) {
+        return false;
+      }
+    }
+
+    return true;
   });
 }
 

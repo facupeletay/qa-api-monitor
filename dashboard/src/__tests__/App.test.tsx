@@ -92,4 +92,52 @@ describe("App component states", () => {
     fireEvent.click(btn30d);
     expect(screen.getByText("5 incidentes")).toBeInTheDocument();
   });
+
+  it("permite buscar por nombre/URL, filtrar por rubro y restablecer filtros", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => sampleHistoryRaw,
+    } as Response);
+
+    render(<App historyUrl="/test/history.json" />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Todo OK")).toBeInTheDocument();
+    });
+
+    // Verifica que inicialmente se agrupen por rubro
+    expect(screen.getByTestId("sector-group-finanzas")).toBeInTheDocument();
+    expect(
+      screen.getByTestId("sector-group-datos_publicos"),
+    ).toBeInTheDocument();
+
+    // Filtrar por búsqueda de texto
+    const searchInput = screen.getByLabelText(
+      /Buscar por servicio o endpoint URL/i,
+    );
+    fireEvent.change(searchInput, { target: { value: "dolarapi" } });
+
+    expect(
+      screen.getAllByText("DolarApi - Dolar Oficial").length,
+    ).toBeGreaterThan(0);
+    expect(screen.queryByText("Open-Meteo - Clima CABA")).toBeNull();
+
+    // Si buscamos algo inexistente muestra estado vacío de filtros y botón para restablecer
+    fireEvent.change(searchInput, { target: { value: "inexistente-xyz" } });
+    expect(
+      screen.getByText(
+        /No se encontraron monitores que coincidan con los filtros/i,
+      ),
+    ).toBeInTheDocument();
+
+    const resetBtn = screen.getByRole("button", {
+      name: /Restablecer filtros/i,
+    });
+    fireEvent.click(resetBtn);
+
+    expect(
+      screen.getAllByText("Open-Meteo - Clima CABA").length,
+    ).toBeGreaterThan(0);
+  });
 });

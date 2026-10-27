@@ -58,6 +58,7 @@ class MonitorConfig(BaseModel):
     retries: int = Field(ge=0)
     backoff_base_s: float = Field(default=0.5, ge=0)
     contract: str | None = None
+    expected_text: str | None = None
     alert_after: int = Field(default=3, ge=1)
     alert_on_degraded: bool = False
 
@@ -94,6 +95,16 @@ class MonitorConfig(BaseModel):
             raise ValueError(
                 f"Contrato desconocido: '{normalized}'. Contratos disponibles: {available}"
             )
+        return normalized
+
+    @field_validator("expected_text")
+    @classmethod
+    def validate_expected_text(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("El campo 'expected_text' no puede estar vacío.")
         return normalized
 
 

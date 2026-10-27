@@ -125,7 +125,7 @@ def execute_check(
             attempts=attempts,
         )
 
-    # El status coincide con el esperado: validamos contrato si está configurado
+    # El status coincide con el esperado: validamos contrato JSON y/o texto esperado
     contract_issue: str | None = None
     if monitor.contract is not None:
         try:
@@ -136,6 +136,15 @@ def execute_check(
             )
         else:
             contract_issue = validate_contract(monitor.contract, payload)
+
+    if (
+        contract_issue is None
+        and monitor.expected_text is not None
+        and monitor.expected_text.lower() not in last_response.text.lower()
+    ):
+        contract_issue = (
+            f"Contenido esperado no encontrado en la respuesta: '{monitor.expected_text}'"
+        )
 
     latency_issue: str | None = None
     if last_latency_ms > monitor.max_latency_ms:
