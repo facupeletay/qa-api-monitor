@@ -27,13 +27,82 @@ def _make_monitor(**overrides: object) -> MonitorConfig:
     return MonitorConfig.model_validate(defaults)
 
 
-def test_contracts_registry_contains_dolar_api_and_open_meteo() -> None:
-    """Verifica que el registro exponga los contratos esperados."""
-    assert "dolar_api" in CONTRACTS
-    assert "open_meteo" in CONTRACTS
-    assert get_contract("dolar_api") is CONTRACTS["dolar_api"]
-    assert get_contract("open_meteo") is CONTRACTS["open_meteo"]
+def test_contracts_registry_contains_all_expected_contracts() -> None:
+    """Verifica que el registro exponga todos los contratos esperados."""
+    expected = {
+        "dolar_api",
+        "open_meteo",
+        "argentina_datos_riesgo_pais",
+        "georef_provincias",
+        "github_status",
+        "coingecko_price",
+    }
+    assert expected.issubset(CONTRACTS.keys())
+    for name in expected:
+        assert get_contract(name) is CONTRACTS[name]
     assert get_contract("inexistente") is None
+
+
+def test_new_contracts_valid_and_invalid_payloads() -> None:
+    """Valida payloads correctos e inválidos para los nuevos contratos registrados."""
+    # 1. argentina_datos_riesgo_pais
+    assert (
+        validate_contract(
+            "argentina_datos_riesgo_pais",
+            {"valor": 765, "fecha": "2026-10-26"},
+        )
+        is None
+    )
+    err_rp = validate_contract("argentina_datos_riesgo_pais", {"valor": "no-num", "fecha": "2026"})
+    assert err_rp is not None and "valor" in err_rp
+
+    # 2. georef_provincias
+    assert (
+        validate_contract(
+            "georef_provincias",
+            {
+                "cantidad": 2,
+                "total": 24,
+                "provincias": [
+                    {"id": "02", "nombre": "Ciudad Autónoma de Buenos Aires"},
+                    {"id": "06", "nombre": "Buenos Aires"},
+                ],
+            },
+        )
+        is None
+    )
+    err_geo = validate_contract(
+        "georef_provincias",
+        {"cantidad": 0, "total": 24, "provincias": []},
+    )
+    assert err_geo is not None and "provincias" in err_geo
+
+    # 3. github_status
+    assert (
+        validate_contract(
+            "github_status",
+            {
+                "page": {
+                    "id": "kctbh9vrtdwd",
+                    "name": "GitHub",
+                    "url": "https://www.githubstatus.com",
+                    "updated_at": "2026-10-27T18:44:18.908Z",
+                },
+                "status": {
+                    "indicator": "none",
+                    "description": "All Systems Operational",
+                },
+            },
+        )
+        is None
+    )
+    err_gh = validate_contract("github_status", {"page": {"id": "1"}, "status": {}})
+    assert err_gh is not None and "status.indicator" in err_gh
+
+    # 4. coingecko_price
+    assert validate_contract("coingecko_price", {"bitcoin": {"usd": 80629.5}}) is None
+    err_cg = validate_contract("coingecko_price", {"bitcoin": {"usd": "caro"}})
+    assert err_cg is not None and "bitcoin.usd" in err_cg
 
 
 @respx.mock

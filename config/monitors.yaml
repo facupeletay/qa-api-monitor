@@ -12,6 +12,26 @@ monitors:
     backoff_base_s: 0.5
     contract: "dolar_api"
 
+  - name: "DolarApi - Dolar Blue"
+    url: "https://dolarapi.com/v1/dolares/blue"
+    method: "GET"
+    expected_status: 200
+    max_latency_ms: 2500
+    timeout_s: 5.0
+    retries: 2
+    backoff_base_s: 0.5
+    contract: "dolar_api"
+
+  - name: "DolarApi - Dolar MEP"
+    url: "https://dolarapi.com/v1/dolares/bolsa"
+    method: "GET"
+    expected_status: 200
+    max_latency_ms: 2500
+    timeout_s: 5.0
+    retries: 2
+    backoff_base_s: 0.5
+    contract: "dolar_api"
+
   - name: "Open-Meteo - Clima CABA"
     url: "https://api.open-meteo.com/v1/forecast?latitude=-34.61&longitude=-58.38&current=temperature_2m"
     method: "GET"
@@ -21,3 +41,43 @@ monitors:
     retries: 2
     backoff_base_s: 0.5
     contract: "open_meteo"
+
+  - name: "ArgentinaDatos - Riesgo Pais"
+    url: "https://api.argentinadatos.com/v1/finanzas/indices/riesgo-pais/ultimo"
+    method: "GET"
+    expected_status: 200
+    max_latency_ms: 2500
+    timeout_s: 5.0
+    retries: 2
+    backoff_base_s: 0.5
+    contract: "argentina_datos_riesgo_pais"
+
+  - name: "GeoRef AR - Provincias"
+    url: "https://apis.datos.gob.ar/georef/api/provincias?campos=id,nombre&max=5"
+    method: "GET"
+    expected_status: 200
+    max_latency_ms: 2500
+    timeout_s: 5.0
+    retries: 2
+    backoff_base_s: 0.5
+    contract: "georef_provincias"
+
+  - name: "GitHub Status - Estado Global"
+    url: "https://www.githubstatus.com/api/v2/status.json"
+    method: "GET"
+    expected_status: 200
+    max_latency_ms: 2500
+    timeout_s: 5.0
+    retries: 2
+    backoff_base_s: 0.5
+    contract: "github_status"
+
+  - name: "CoinGecko - Bitcoin (BTC/USD)"
+    url: "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd"
+    method: "GET"
+    expected_status: 200
+    max_latency_ms: 2500
+    timeout_s: 5.0
+    retries: 2
+    backoff_base_s: 0.5
+    contract: "coingecko_price"

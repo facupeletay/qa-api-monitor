@@ -93,3 +93,19 @@ def test_invalid_yaml_or_missing_fields_raises_clear_error(tmp_path: Path) -> No
     list_root_yaml.write_text("- item1\n- item2\n", encoding="utf-8")
     with pytest.raises(ConfigError, match="objeto raíz"):
         load_config(list_root_yaml)
+
+
+def test_production_monitors_yaml_loads_all_configured_apis() -> None:
+    """Verifica que config/monitors.yaml real sea válido y tenga todos los contratos registrados."""
+    repo_root = Path(__file__).resolve().parent.parent
+    monitors = load_config(repo_root / "config" / "monitors.yaml")
+    assert len(monitors) == 8
+    names = {m.name for m in monitors}
+    assert "DolarApi - Dolar Oficial" in names
+    assert "DolarApi - Dolar Blue" in names
+    assert "DolarApi - Dolar MEP" in names
+    assert "Open-Meteo - Clima CABA" in names
+    assert "ArgentinaDatos - Riesgo Pais" in names
+    assert "GeoRef AR - Provincias" in names
+    assert "GitHub Status - Estado Global" in names
+    assert "CoinGecko - Bitcoin (BTC/USD)" in names

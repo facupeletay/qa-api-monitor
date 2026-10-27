@@ -82,6 +82,19 @@ Actualizar el historial (usando un archivo previo local o la URL de GitHub Pages
 python -m monitor.history --previous https://facupeletay.github.io/qa-api-monitor/history.json --run results/run.json --output site/history.json
 ```
 
+## APIs monitoreadas y contratos (`monitor/contracts/`)
+
+| Monitor | Endpoint | Contrato Pydantic |
+| :--- | :--- | :--- |
+| **DolarApi - Dolar Oficial** | `https://dolarapi.com/v1/dolares/oficial` | `dolar_api` |
+| **DolarApi - Dolar Blue** | `https://dolarapi.com/v1/dolares/blue` | `dolar_api` |
+| **DolarApi - Dolar MEP** | `https://dolarapi.com/v1/dolares/bolsa` | `dolar_api` |
+| **Open-Meteo - Clima CABA** | `https://api.open-meteo.com/v1/forecast?...` | `open_meteo` |
+| **ArgentinaDatos - Riesgo Pais** | `https://api.argentinadatos.com/v1/finanzas/indices/riesgo-pais/ultimo` | `argentina_datos_riesgo_pais` |
+| **GeoRef AR - Provincias** | `https://apis.datos.gob.ar/georef/api/provincias?campos=id,nombre&max=5` | `georef_provincias` |
+| **GitHub Status - Estado Global** | `https://www.githubstatus.com/api/v2/status.json` | `github_status` |
+| **CoinGecko - Bitcoin (BTC/USD)** | `https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd` | `coingecko_price` |
+
 ## Alertas (`monitor/alerts.py`)
 
 El módulo `monitor.alerts` analiza las fallas consecutivas de cada monitor a partir del `history.json` ya mergeado (sin estado externo adicional) mediante la función pura `decide_action(monitor, history, alert_cfg, open_issue)` y sincroniza incidentes con **GitHub Issues** vía la API REST de GitHub (`httpx`):

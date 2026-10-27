@@ -4,11 +4,27 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ValidationError
 
-from monitor.contracts.models import DolarApiContract, OpenMeteoContract, OpenMeteoCurrent
+from monitor.contracts.models import (
+    ArgentinaDatosRiesgoPaisContract,
+    CoinGeckoBitcoinUsd,
+    CoinGeckoPriceContract,
+    DolarApiContract,
+    GeorefProvinciaItem,
+    GeorefProvinciasContract,
+    GitHubStatusContract,
+    GitHubStatusInfo,
+    GitHubStatusPage,
+    OpenMeteoContract,
+    OpenMeteoCurrent,
+)
 
 CONTRACTS: dict[str, type[BaseModel]] = {
     "dolar_api": DolarApiContract,
     "open_meteo": OpenMeteoContract,
+    "argentina_datos_riesgo_pais": ArgentinaDatosRiesgoPaisContract,
+    "georef_provincias": GeorefProvinciasContract,
+    "github_status": GitHubStatusContract,
+    "coingecko_price": CoinGeckoPriceContract,
 }
 
 
@@ -42,7 +58,15 @@ def validate_contract(contract_name: str, payload: object) -> str | None:
 
 __all__ = [
     "CONTRACTS",
+    "ArgentinaDatosRiesgoPaisContract",
+    "CoinGeckoBitcoinUsd",
+    "CoinGeckoPriceContract",
     "DolarApiContract",
+    "GeorefProvinciaItem",
+    "GeorefProvinciasContract",
+    "GitHubStatusContract",
+    "GitHubStatusInfo",
+    "GitHubStatusPage",
     "OpenMeteoContract",
     "OpenMeteoCurrent",
     "get_contract",
