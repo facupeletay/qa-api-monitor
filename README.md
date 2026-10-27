@@ -84,12 +84,13 @@ python -m monitor.history --previous https://facupeletay.github.io/qa-api-monito
 
 ## Alertas (`monitor/alerts.py`)
 
-El módulo `monitor.alerts` analiza las fallas consecutivas de cada monitor a partir del `history.json` ya mergeado (sin estado externo adicional) y sincroniza incidentes con **GitHub Issues** mediante la API REST de GitHub (`httpx`):
+El módulo `monitor.alerts` analiza las fallas consecutivas de cada monitor a partir del `history.json` ya mergeado (sin estado externo adicional) mediante la función pura `decide_action(monitor, history, alert_cfg, open_issue)` y sincroniza incidentes con **GitHub Issues** vía la API REST de GitHub (`httpx`):
 
-- **Apertura automática:** Cuando un monitor acumula `alert_after` corridas consecutivas fallidas y no tiene un Issue abierto, asegura que exista el label `monitor-alert` y abre un Issue con título fijo `[ALERTA] <nombre del monitor>`, detallando categoría, inicio de la falla, cantidad de corridas fallidas, último status HTTP/error y enlaces al dashboard y al run de Actions.
-- **Sin duplicados ni spam:** Si ya existe un Issue abierto para ese monitor, no crea otro. Solo agrega un comentario si cambió la categoría de la falla (por ejemplo, de `server_error` a `network_error`).
-- **Cierre por recuperación:** Cuando la última corrida del monitor vuelve a `ok` y existe un Issue abierto, comenta la duración total del incidente y cierra el Issue.
-- **Modo `--dry-run`:** Si se pasa `--dry-run` o si no está definida la variable de entorno `GITHUB_TOKEN`, el comando corre en modo simulación sin realizar llamadas HTTP.
+- **Apertura automática (`OPEN`):** Cuando un monitor acumula `alert_after` corridas consecutivas fallidas y no tiene un Issue abierto, asegura que exista el label `monitor-alert` y abre un Issue con título `[ALERTA] <nombre del monitor>`, incluyendo el marcador oculto `<!-- monitor-id: <id estable> -->` (usando `id` del YAML o el slug del nombre), categoría, inicio de la falla, corridas fallidas, último status HTTP/error y enlaces al dashboard y al run de Actions.
+- **Búsqueda paginada por marcador (`monitor-id`):** Los Issues abiertos se listan paginando `GET /repos/{owner}/{repo}/issues?state=open&labels=monitor-alert` y se identifican por el marcador oculto `<!-- monitor-id: ... -->` (nunca por título). Si hubiera más de un Issue abierto para el mismo monitor, se usa el más antiguo y se emite un warning sin abrir otro.
+- **Sin duplicados ni spam (`COMMENT_CATEGORY_CHANGE` / `NOOP`):** Si ya existe un Issue abierto para ese monitor, no crea otro. Solo agrega un comentario si cambió la categoría de la falla (por ejemplo, de `server_error` a `network_error`).
+- **Cierre por recuperación (`CLOSE_RECOVERED`):** Cuando la última corrida del monitor vuelve a `ok` y existe un Issue abierto, comenta la duración total del incidente y cierra el Issue.
+- **Modo `--dry-run`:** Comparte exactamente la misma función `decide_action`, infiriendo `open_issue` desde las corridas previas del historial y usando un cliente que nunca realiza llamadas HTTP.
 
 ### Configuración en `config/monitors.yaml`
 

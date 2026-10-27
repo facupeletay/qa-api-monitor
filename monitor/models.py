@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+import unicodedata
 from typing import Literal
 from urllib.parse import urlparse
 
@@ -28,6 +30,14 @@ ALL_STATUS_CATEGORIES: tuple[StatusCategory, ...] = (
 )
 
 
+def slugify_monitor_name(name: str) -> str:
+    """Convierte el nombre de un monitor en un identificador estable (slug)."""
+    normalized = unicodedata.normalize("NFKD", name)
+    ascii_text = normalized.encode("ascii", "ignore").decode("ascii").lower()
+    slug = re.sub(r"[^a-z0-9]+", "-", ascii_text).strip("-")
+    return slug or "monitor"
+
+
 class AlertsConfig(BaseModel):
     """Configuración global de alertas por fallas consecutivas."""
 
@@ -38,6 +48,7 @@ class AlertsConfig(BaseModel):
 class MonitorConfig(BaseModel):
     """Configuración de un endpoint a monitorear."""
 
+    id: str | None = None
     name: str = Field(min_length=1)
     url: str = Field(min_length=1)
     method: HttpMethod = "GET"
@@ -49,6 +60,13 @@ class MonitorConfig(BaseModel):
     contract: str | None = None
     alert_after: int = Field(default=3, ge=1)
     alert_on_degraded: bool = False
+
+    @property
+    def monitor_id(self) -> str:
+        """Devuelve el id explícito del YAML o un slug estable derivado del nombre."""
+        if self.id and self.id.strip():
+            return self.id.strip()
+        return slugify_monitor_name(self.name)
 
     @field_validator("method", mode="before")
     @classmethod
