@@ -234,7 +234,7 @@ def test_fetch_previous_history_with_cache_busting_query_and_no_cache_header() -
 
 def test_history_cli_end_to_end_with_temp_files(tmp_path: Path) -> None:
     """CLI de history punta a punta con archivos temporales."""
-    now = datetime(2026, 10, 17, 18, 0, 0, tzinfo=UTC)
+    now = datetime.now(UTC).replace(microsecond=0)
     ts_prev = (now - timedelta(hours=6)).isoformat().replace("+00:00", "Z")
     ts_curr = now.isoformat().replace("+00:00", "Z")
 

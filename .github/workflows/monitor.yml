@@ -8,8 +8,6 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: "qa-api-monitor-pages"
@@ -18,8 +16,13 @@ concurrency:
 jobs:
   monitor-and-deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+      issues: write
     environment:
-      name: github-pages
+      name: ${{ github.ref == 'refs/heads/main' && 'github-pages' || '' }}
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout del repositorio
@@ -85,13 +88,34 @@ jobs:
         run: cp site/history.json dashboard/dist/history.json
 
       - name: Configurar GitHub Pages
+        if: github.ref == 'refs/heads/main'
         uses: actions/configure-pages@v6
 
       - name: Subir artifact del sitio para GitHub Pages
+        if: github.ref == 'refs/heads/main'
         uses: actions/upload-pages-artifact@v5
         with:
           path: dashboard/dist
 
       - name: Publicar en GitHub Pages
+        if: github.ref == 'refs/heads/main'
         id: deployment
         uses: actions/deploy-pages@v5
+
+      - name: Evaluar alertas y gestionar GitHub Issues
+        id: alerts
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python -m monitor.alerts \
+            --history site/history.json \
+            --config config/monitors.yaml \
+            --summary-md "$GITHUB_STEP_SUMMARY"
+
+      - name: Advertir si fallaron las alertas
+        if: steps.alerts.outcome == 'failure'
+        run: |
+          echo '::warning::Fallaron las alertas de GitHub Issues; ver el paso "Evaluar alertas"'
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo '⚠️ **Advertencia:** Fallaron las alertas de GitHub Issues; ver el paso "Evaluar alertas".' >> "$GITHUB_STEP_SUMMARY"
